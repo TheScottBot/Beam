@@ -39,3 +39,5 @@ packages/native-recorder/linux/*/capture-engine-*
 packages/native-recorder/linux/*/beam-input-helper-*
 
 coverage/*
+
+docs/evaluation/
