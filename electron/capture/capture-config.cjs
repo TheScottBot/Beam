@@ -127,6 +127,9 @@ function buildDefaultCaptureConfig(catalog, options, environment) {
               Boolean(capabilities.cursorClicks) &&
               (environment.platform !== 'linux' || options.recordInteractions === true),
             captureShortcuts: options.recordInteractions === true && Boolean(capabilities.inputShortcuts),
+            // Its own opt in, apart from shortcuts: keystroke timing is a different kind of data,
+            // and only the exact value true may turn a privacy setting on.
+            captureTyping: options.detectTyping === true && Boolean(capabilities.inputTyping),
             captureShape: Boolean(capabilities.cursorShapes),
           }
         : { mode: capabilities.embeddedCursor ? 'embedded' : 'disabled' },

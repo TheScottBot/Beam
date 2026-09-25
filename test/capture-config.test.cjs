@@ -32,6 +32,7 @@ test('builds a one-call recording config from defaults', () => {
     mode: 'separate',
     captureClicks: true,
     captureShortcuts: false,
+    captureTyping: false,
     captureShape: false,
   });
   assert.equal(config.recording.outputRoot, 'recordings');
@@ -107,6 +108,7 @@ test('builds a Linux monitor Portal selection without a Chromium source id', () 
     mode: 'separate',
     captureClicks: false,
     captureShortcuts: false,
+    captureTyping: false,
     captureShape: true,
   });
 });
@@ -139,6 +141,7 @@ test('keeps mouse clicks on Windows and macOS when interaction recording is off'
       mode: 'separate',
       captureClicks: true,
       captureShortcuts: false,
+      captureTyping: false,
       captureShape: false,
     });
   }
@@ -162,6 +165,7 @@ test('enables clicks and shortcuts on Linux only when interaction recording is o
     mode: 'separate',
     captureClicks: false,
     captureShortcuts: false,
+    captureTyping: false,
     captureShape: true,
   });
 
@@ -170,6 +174,7 @@ test('enables clicks and shortcuts on Linux only when interaction recording is o
     mode: 'separate',
     captureClicks: true,
     captureShortcuts: true,
+    captureTyping: false,
     captureShape: true,
   });
 });
@@ -235,4 +240,40 @@ test('keeps Linux Portal intents when a second discovery is empty', () => {
       restoreToken: null,
     });
   }
+});
+
+const typingCatalog = { ...catalog, capabilities: { ...catalog.capabilities, inputTyping: true } };
+
+test('asks the engine for typing detection only when the recording opts in', () => {
+  for (const platform of ['win32', 'darwin']) {
+    const config = buildDefaultCaptureConfig(typingCatalog, { detectTyping: true }, { ...environment, platform });
+    assert.equal(config.cursor.captureTyping, true, platform);
+  }
+});
+
+test('leaves typing detection off unless the option is exactly true', () => {
+  for (const detectTyping of [undefined, false, 'true', 1, {}]) {
+    const config = buildDefaultCaptureConfig(typingCatalog, { detectTyping }, environment);
+    assert.equal(config.cursor.captureTyping, false, String(detectTyping));
+  }
+});
+
+test('leaves typing detection off where the engine cannot capture it', () => {
+  const linux = { ...environment, platform: 'linux' };
+  const linuxCatalog = {
+    capabilities: { portalSelection: true, separateCursor: true, inputTyping: false },
+    sources: [{ id: 'portal:monitor', kind: 'display', isDefault: true, selectionMode: 'portal' }],
+  };
+  assert.equal(buildDefaultCaptureConfig(linuxCatalog, { detectTyping: true }, linux).cursor.captureTyping, false);
+  assert.equal(buildDefaultCaptureConfig(catalog, { detectTyping: true }, environment).cursor.captureTyping, false);
+});
+
+test('typing detection does not depend on the keyboard shortcut setting', () => {
+  const config = buildDefaultCaptureConfig(
+    typingCatalog,
+    { detectTyping: true, recordInteractions: false },
+    environment,
+  );
+  assert.equal(config.cursor.captureShortcuts, false);
+  assert.equal(config.cursor.captureTyping, true);
 });

@@ -4,7 +4,7 @@ const path = require('path');
 const { fileURLToPath, pathToFileURL } = require('url');
 const { kindFor } = require('../backgrounds/background-library.cjs');
 const { emptyComposition, importMedia, importImageBuffer } = require('./clip-composition.cjs');
-const { normalizeInputSidecar, recordedPlatform } = require('./input-sidecar.cjs');
+const { recordedPlatform, sessionInteractionsFrom } = require('./input-sidecar.cjs');
 const {
   createDefaultPresentation,
   defaultZoomAutoFollow,
@@ -250,11 +250,7 @@ function createProjectStore(root, { mediaHost = 'asset', category = null } = {})
         : [];
       const cursorDirectory = path.join(sessionDirectory, 'cursor');
       const events = readJsonArray(path.join(cursorDirectory, 'cursor.json'));
-      let interactions = null;
-      try {
-        const parsed = JSON.parse(fs.readFileSync(path.join(cursorDirectory, 'input.json'), 'utf8'));
-        interactions = normalizeInputSidecar(parsed);
-      } catch {}
+      const sessionInteractions = sessionInteractionsFrom(path.join(cursorDirectory, 'input.json'), session.sessionId);
       let metadata = {};
       try {
         metadata = JSON.parse(fs.readFileSync(path.join(cursorDirectory, 'shapes.json'), 'utf8')) || {};
@@ -302,7 +298,7 @@ function createProjectStore(root, { mediaHost = 'asset', category = null } = {})
           catalog,
           missing: [...(Array.isArray(events) ? [] : ['cursor.json']), ...missing],
         },
-        interactions: interactions || { version: 1, events: [] },
+        ...sessionInteractions,
         recordedPlatform: recordedPlatform(sessionManifest.platform?.os),
         zoom: manifest.editor?.zoom
           ? zoomState(manifest.editor.zoom)

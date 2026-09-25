@@ -13,6 +13,8 @@ export interface StartRecordingOptions {
   systemAudio?: boolean;
   cursor?: boolean;
   recordInteractions?: boolean;
+  /** Opts in to keystroke timing for typing zooms; only `true` turns it on. */
+  detectTyping?: boolean;
   outputRoot?: string;
   targetFps?: number;
   videoBitrateBps?: number;
@@ -49,6 +51,7 @@ export interface CaptureConfig {
         mode: 'separate';
         captureClicks: boolean;
         captureShortcuts: boolean;
+        captureTyping: boolean;
         captureShape: boolean;
       };
   recording: RecordingSettings;

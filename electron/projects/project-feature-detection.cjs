@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { readInputSidecar } = require('./input-sidecar.cjs');
+
+const typingEventKinds = new Set(['keystroke', 'keystroke-limit-reached']);
 
 const hasMediaFiles = (directory, extensions) => {
   try {
@@ -50,9 +53,11 @@ function createProjectFeatureDetector({ safePath, sessionFileFor }) {
     return sessionIds.some((sessionId) => {
       try {
         const file = sessionFileFor(directory, sessionId, path.join('cursor', 'input.json'));
-        if (!file || !fs.existsSync(file)) return false;
-        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-        return Array.isArray(data?.events) && data.events.length > 0;
+        if (!file) return false;
+        const result = readInputSidecar(file);
+        // Typing detection shares the file but produces no keyboard captions, so its events
+        // must not make a project look as if it had some.
+        return result.status === 'read' && result.sidecar.events.some((event) => !typingEventKinds.has(event.event));
       } catch {
         return false;
       }

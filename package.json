@@ -83,7 +83,8 @@
     "productName": "Beam",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "packages/capture/contracts/**/*"
     ],
     "directories": {
       "output": "dist_electron"

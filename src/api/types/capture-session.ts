@@ -183,12 +183,20 @@ export type InputEvent =
       pressed: boolean;
       modifiers: InputModifier[];
       key: InputKey;
-    };
+    }
+  /** Typing detection: when a key went down and whether it would have typed a character, never which key. */
+  | { event: 'keystroke'; sessionNs: number; producesCharacter: boolean }
+  /** Written once when a session reached the keystroke cap; later typing was not recorded. */
+  | { event: 'keystroke-limit-reached'; sessionNs: number };
 
 export interface InputEventSidecar {
-  version: 1;
+  /** Version 2 added keystroke events; version 1 sidecars are still read. */
+  version: 1 | 2;
   events: InputEvent[];
 }
+
+/** Why Electron refused a session's input sidecar; see `electron/projects/input-sidecar.cjs`. */
+export type InputSidecarRefusedReason = 'too-large' | 'too-many-events' | 'invalid' | 'unreadable';
 
 export interface ZoomFocus {
   cx: number;
@@ -278,6 +286,8 @@ export interface ProjectEditorData {
     missing: string[];
   };
   interactions?: InputEventSidecar;
+  /** Present only when the session's sidecar existed and was refused, so its interactions are empty. */
+  interactionsRefusedReason?: InputSidecarRefusedReason;
   recordedPlatform: 'windows' | 'macos' | 'linux' | null;
   zoom: ProjectZoomState;
 }
