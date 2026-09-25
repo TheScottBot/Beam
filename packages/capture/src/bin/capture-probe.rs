@@ -202,6 +202,7 @@ fn run_linux_native_capture() -> Result<serde_json::Value, capture::CaptureError
         cursor: CursorSelection::Separate {
             capture_clicks: false,
             capture_shortcuts: false,
+            capture_typing: false,
             capture_shape: false,
         },
         excluded_window_handles: &[],

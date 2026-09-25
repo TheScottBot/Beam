@@ -192,6 +192,7 @@ fn record_full_session() -> Result<(), capture::CaptureError> {
         cursor: CursorSelection::Separate {
             capture_clicks: snapshot.capabilities.cursor_clicks,
             capture_shortcuts: snapshot.capabilities.input_shortcuts,
+            capture_typing: snapshot.capabilities.input_typing,
             capture_shape: snapshot.capabilities.cursor_shapes,
         },
         recording: RecordingSettings {

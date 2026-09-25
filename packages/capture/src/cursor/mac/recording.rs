@@ -21,7 +21,7 @@ use crate::{
         CaptureRegion, CursorEvent, CursorEventWriter, CursorRecordingPaths, finalize_after_worker,
         map_coordinates, move_sample_due,
     },
-    input::{InputEvent, InputEventWriter, ShortcutSampler},
+    input::{InputEvent, InputEventWriter, ShortcutSampler, TypingSampler},
     model::{CursorSelection, SourceId},
     session::StartGate,
 };
@@ -83,6 +83,7 @@ impl MacCursorRecording {
         let CursorSelection::Separate {
             capture_clicks,
             capture_shortcuts,
+            capture_typing,
             capture_shape,
         } = selection
         else {
@@ -114,6 +115,7 @@ impl MacCursorRecording {
                     region,
                     capture_clicks,
                     capture_shortcuts,
+                    capture_typing,
                     capture_shape,
                     shape_source,
                     segment_start_ns,
@@ -229,6 +231,7 @@ fn capture_loop(
     region: CaptureRegion,
     capture_clicks: bool,
     capture_shortcuts: bool,
+    capture_typing: bool,
     capture_shape: bool,
     shape_source: super::MacCursorShapeSource,
     segment_start_ns: u64,
@@ -256,6 +259,7 @@ fn capture_loop(
     )?;
     let mut previous_shape = None;
     let mut shortcuts = ShortcutSampler::default();
+    let mut typing = TypingSampler::default();
     let mut successful_samples = 0_u64;
     let mut last_sampling_error = None;
     while !cancel.load(Ordering::Acquire) {
@@ -349,6 +353,16 @@ fn capture_loop(
                 session_ns,
                 super::shortcut_modifier_pressed,
                 super::shortcut_key_pressed,
+            ) {
+                input_writer.push(&event)?;
+            }
+        }
+        if capture_typing {
+            for event in typing.sample(
+                session_ns,
+                super::MAC_TYPING_KEYS,
+                super::shortcut_modifier_pressed,
+                super::typing_key_pressed,
             ) {
                 input_writer.push(&event)?;
             }

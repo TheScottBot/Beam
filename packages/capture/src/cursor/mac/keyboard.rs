@@ -93,6 +93,11 @@ pub(crate) fn shortcut_key_pressed(key: InputKey) -> bool {
     })
 }
 
+#[must_use]
+pub(crate) fn typing_key_pressed(native_key_code: u16) -> bool {
+    key_state(native_key_code)
+}
+
 fn key_state(key: u16) -> bool {
     // SAFETY: CoreGraphics accepts any virtual key code and reads no caller-owned memory.
     unsafe { CGEventSourceKeyState(CGEventSourceStateID::CombinedSessionState, key) }

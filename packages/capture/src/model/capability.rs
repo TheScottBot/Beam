@@ -12,6 +12,7 @@ pub struct CaptureCapabilities {
     pub cursor_shapes: bool,
     pub cursor_clicks: bool,
     pub input_shortcuts: bool,
+    pub input_typing: bool,
     pub hardware_h264: bool,
     pub hardware_hevc: bool,
     pub hardware_av1: bool,

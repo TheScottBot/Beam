@@ -61,6 +61,10 @@ futures-util = "0.3"
 xcursor = "=0.3.11"
 gbm = { version = "=0.18.0", default-features = false }
 
+[build-dependencies]
+# Already a dependency of this crate; the build script uses it to read the input sidecar limits.
+serde_json = "1"
+
 [dev-dependencies]
 base64 = "0.23.1"
 jpeg-encoder = "0.7.1"

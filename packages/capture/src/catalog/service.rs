@@ -74,6 +74,7 @@ pub fn validate_request(
         CursorSelection::Separate {
             capture_clicks,
             capture_shortcuts,
+            capture_typing,
             capture_shape,
         } => {
             require_capability(snapshot.capabilities.separate_cursor, "separate cursor")?;
@@ -84,6 +85,10 @@ pub fn validate_request(
             require_capability(
                 !capture_shortcuts || snapshot.capabilities.input_shortcuts,
                 "input shortcuts",
+            )?;
+            require_capability(
+                !capture_typing || snapshot.capabilities.input_typing,
+                "input typing",
             )?;
             require_capability(
                 !capture_shape || snapshot.capabilities.cursor_shapes,

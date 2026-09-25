@@ -15,12 +15,14 @@ use crate::{
         CaptureRegion, CursorEvent, CursorEventWriter, CursorRecordingPaths, finalize_after_worker,
         move_sample_due,
     },
-    input::{InputEvent, InputEventWriter, ShortcutSampler},
+    input::{InputEvent, InputEventWriter, ShortcutSampler, TypingSampler},
+    model::CursorSelection,
     session::StartGate,
 };
 
 use super::WindowsCursorSourceContext;
-use super::{sample_cursor, shortcut_key_pressed, shortcut_modifier_pressed};
+use super::typing_keys::WINDOWS_TYPING_KEYS;
+use super::{sample_cursor, shortcut_key_pressed, shortcut_modifier_pressed, typing_key_pressed};
 
 #[derive(Debug, Default)]
 pub struct CursorCaptureMetrics {
@@ -56,12 +58,21 @@ impl WindowsCursorRecording {
     pub fn start(
         directory: &Path,
         source: WindowsCursorSourceContext,
-        capture_clicks: bool,
-        capture_shortcuts: bool,
-        capture_shape: bool,
+        selection: CursorSelection,
         segment_start_ns: u64,
         start_gate: Arc<StartGate>,
     ) -> Result<Self, CaptureError> {
+        let CursorSelection::Separate {
+            capture_clicks,
+            capture_shortcuts,
+            capture_typing,
+            capture_shape,
+        } = selection
+        else {
+            return Err(CaptureError::InvalidConfiguration(
+                "Windows cursor recording requires separate cursor mode".into(),
+            ));
+        };
         std::fs::create_dir_all(directory)
             .map_err(|error| CaptureError::storage(directory, error))?;
         let partial_path = directory.join("cursor.partial.jsonl");
@@ -86,6 +97,7 @@ impl WindowsCursorRecording {
                     source.region,
                     capture_clicks,
                     capture_shortcuts,
+                    capture_typing,
                     capture_shape,
                     source.display_scale_factor,
                     segment_start_ns,
@@ -164,6 +176,7 @@ fn capture_loop(
     region: CaptureRegion,
     capture_clicks: bool,
     capture_shortcuts: bool,
+    capture_typing: bool,
     capture_shape: bool,
     display_scale_factor: Option<f64>,
     segment_start_ns: u64,
@@ -188,6 +201,7 @@ fn capture_loop(
     let mut previous = Previous::default();
     let mut next_move_sample_ns = segment_start_ns;
     let mut shortcuts = ShortcutSampler::default();
+    let mut typing = TypingSampler::default();
     while !cancel.load(Ordering::Acquire) {
         let session_ns = segment_start_ns
             .saturating_add(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
@@ -280,6 +294,16 @@ fn capture_loop(
             for event in
                 shortcuts.sample(session_ns, shortcut_modifier_pressed, shortcut_key_pressed)
             {
+                input_writer.push(&event)?;
+            }
+        }
+        if capture_typing {
+            for event in typing.sample(
+                session_ns,
+                WINDOWS_TYPING_KEYS,
+                shortcut_modifier_pressed,
+                typing_key_pressed,
+            ) {
                 input_writer.push(&event)?;
             }
         }

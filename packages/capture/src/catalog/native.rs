@@ -76,6 +76,10 @@ fn platform_catalog() -> Result<PlatformCatalog, CaptureError> {
         cursor_shapes: native.cursor_shapes,
         cursor_clicks: native.cursor_clicks,
         input_shortcuts: native.cursor_clicks,
+        // The privileged Linux input helper filters plain typing out before it reaches the
+        // engine. Keystroke timing arrives there in a later phase; until then Linux reports it
+        // unavailable rather than accepting a setting it cannot honour.
+        input_typing: false,
         hardware_h264: probe
             .ffmpeg
             .as_ref()

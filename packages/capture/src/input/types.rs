@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-pub const INPUT_SIDECAR_VERSION: u8 = 1;
+/// Version 2 added `keystroke` and `keystroke-limit-reached` events for typing detection.
+/// Readers still accept version 1, which holds neither.
+pub const INPUT_SIDECAR_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -97,13 +99,26 @@ pub enum InputEvent {
         modifiers: Vec<InputModifier>,
         key: InputKey,
     },
+    /// A key press recorded for typing detection. It deliberately carries no key identity: the
+    /// time and whether the key would have produced a character are all the editor needs to
+    /// find typing, and anything more could help reconstruct what was typed.
+    Keystroke {
+        session_ns: u64,
+        produces_character: bool,
+    },
+    /// Written once, when a session reaches the contract's keystroke cap, so a typing zoom that
+    /// stops appearing late in a long recording can be explained rather than looking broken.
+    KeystrokeLimitReached { session_ns: u64 },
 }
 
 impl InputEvent {
     #[must_use]
     pub fn session_ns(&self) -> u64 {
         match self {
-            Self::MouseButton { session_ns, .. } | Self::Shortcut { session_ns, .. } => *session_ns,
+            Self::MouseButton { session_ns, .. }
+            | Self::Shortcut { session_ns, .. }
+            | Self::Keystroke { session_ns, .. }
+            | Self::KeystrokeLimitReached { session_ns } => *session_ns,
         }
     }
 }

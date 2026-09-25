@@ -159,6 +159,11 @@ fn key_pressed(key: u16) -> bool {
 }
 
 #[must_use]
+pub(crate) fn typing_key_pressed(native_key_code: u16) -> bool {
+    key_pressed(native_key_code)
+}
+
+#[must_use]
 pub fn shortcut_modifier_pressed(modifier: InputModifier) -> bool {
     let key = match modifier {
         InputModifier::Control => 0x11,

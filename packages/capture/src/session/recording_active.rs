@@ -98,12 +98,7 @@ impl ActiveRecordings {
             cursor_shape_source,
         } = context;
         #[cfg(all(windows, feature = "cursor"))]
-        if let CursorSelection::Separate {
-            capture_clicks,
-            capture_shortcuts,
-            capture_shape,
-        } = request.cursor
-        {
+        if matches!(request.cursor, CursorSelection::Separate { .. }) {
             let source = match &request.screen {
                 Some(ScreenSelection::Source { source_id }) => {
                     let source = crate::cursor::win::source_context(source_id)?;
@@ -133,9 +128,7 @@ impl ActiveRecordings {
             self.cursor = Some(crate::cursor::win::WindowsCursorRecording::start(
                 &layout.track_dir(TrackKind::Cursor),
                 source,
-                capture_clicks,
-                capture_shortcuts,
-                capture_shape,
+                request.cursor,
                 start_ns,
                 start_gate.clone(),
             )?);

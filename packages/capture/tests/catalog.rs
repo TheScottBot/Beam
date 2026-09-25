@@ -89,6 +89,7 @@ fn unsupported_cursor_mode_is_rejected_by_runtime_capabilities() {
         cursor: CursorSelection::Separate {
             capture_clicks: true,
             capture_shortcuts: true,
+            capture_typing: false,
             capture_shape: true,
         },
         recording: RecordingSettings::default(),
@@ -129,6 +130,7 @@ fn supported_cursor_shape_mode_is_accepted_by_runtime_capabilities() {
         cursor: CursorSelection::Separate {
             capture_clicks: false,
             capture_shortcuts: false,
+            capture_typing: false,
             capture_shape: true,
         },
         recording: RecordingSettings::default(),

@@ -95,6 +95,10 @@ pub enum CursorSelection {
         capture_clicks: bool,
         #[serde(default)]
         capture_shortcuts: bool,
+        /// Keystroke timing for typing detection. Absent means off: it is an opt in privacy
+        /// setting, so only a request that asks for it by name turns it on.
+        #[serde(default)]
+        capture_typing: bool,
         capture_shape: bool,
     },
 }
@@ -104,6 +108,7 @@ impl Default for CursorSelection {
         Self::Separate {
             capture_clicks: true,
             capture_shortcuts: true,
+            capture_typing: false,
             capture_shape: true,
         }
     }

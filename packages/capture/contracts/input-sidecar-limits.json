@@ -1,0 +1,5 @@
+{
+  "maximumSidecarBytes": 134217728,
+  "maximumSidecarEvents": 1000000,
+  "maximumKeystrokeEvents": 400000
+}
