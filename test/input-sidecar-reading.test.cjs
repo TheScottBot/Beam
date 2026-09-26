@@ -7,6 +7,9 @@ const test = require('node:test');
 const { inputSidecarLimits, readInputSidecar } = require('../electron/projects/input-sidecar.cjs');
 const { createProjectFeatureDetector } = require('../electron/projects/project-feature-detection.cjs');
 const {
+  caretAutomationUnavailableEvent,
+  caretEvent,
+  caretLimitReachedEvent,
   keystrokeEvent,
   mouseButtonEvent,
   shortcutEvent,
@@ -151,4 +154,14 @@ test('a refused sidecar is reported once by reason and size, never by content', 
   assert.match(reports[0], /invalid/);
   assert.match(reports[0], new RegExp(`${Buffer.byteLength(contents)} bytes`));
   assert.doesNotMatch(reports[0], /secret-marker/);
+});
+
+test('a caret track alone does not count as keyboard caption content', (t) => {
+  assert.equal(
+    captionFeatureWith(
+      t,
+      sidecarVersion2([caretAutomationUnavailableEvent(0), caretEvent(1), caretLimitReachedEvent(2)]),
+    ),
+    false,
+  );
 });

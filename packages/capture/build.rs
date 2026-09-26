@@ -4,7 +4,7 @@ use std::{error::Error, fmt::Write as _, path::PathBuf};
 const INPUT_SIDECAR_LIMITS_CONTRACT: &str = "contracts/input-sidecar-limits.json";
 
 /// Contract field, generated constant name, and what the bound protects.
-const INPUT_SIDECAR_LIMIT_FIELDS: [(&str, &str, &str); 3] = [
+const INPUT_SIDECAR_LIMIT_FIELDS: [(&str, &str, &str); 4] = [
     (
         "maximumSidecarBytes",
         "MAXIMUM_INPUT_SIDECAR_BYTES",
@@ -19,6 +19,11 @@ const INPUT_SIDECAR_LIMIT_FIELDS: [(&str, &str, &str); 3] = [
         "maximumKeystrokeEvents",
         "MAXIMUM_KEYSTROKE_EVENTS",
         "Most keystroke events recorded in one session, so typing alone cannot push a sidecar past the event bound.",
+    ),
+    (
+        "maximumCaretEvents",
+        "MAXIMUM_CARET_EVENTS",
+        "Most caret positions recorded in one session, so the caret track cannot push a sidecar past the event bound.",
     ),
 ];
 

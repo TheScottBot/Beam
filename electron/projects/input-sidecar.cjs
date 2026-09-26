@@ -6,14 +6,30 @@ const inputSidecarLimits = require('../../packages/capture/contracts/input-sidec
 const supportedVersions = new Set([1, 2]);
 
 // Version 2 names every field an event may carry. Anything else is refused rather than dropped:
-// a keystroke is allowed to say when and whether it typed a character, and a field that could
-// say which key must never be accepted, however it got there.
+// a keystroke may say when and whether it typed a character, and a caret where it was, and a
+// field that could say which key, what text or which window must never be accepted, however it
+// got there.
 const version2EventFields = {
   'mouse-button': ['event', 'sessionNs', 'button', 'pressed'],
   shortcut: ['event', 'sessionNs', 'pressed', 'modifiers', 'key'],
   keystroke: ['event', 'sessionNs', 'producesCharacter'],
   'keystroke-limit-reached': ['event', 'sessionNs'],
+  caret: ['event', 'sessionNs', 'normalizedX', 'normalizedY'],
+  'caret-limit-reached': ['event', 'sessionNs'],
+  'caret-automation-unavailable': ['event', 'sessionNs'],
 };
+
+// Typing detection's events, each with the message its refusal carries.
+const typingEventRefusals = {
+  keystroke: 'Frappe input invalide',
+  'keystroke-limit-reached': 'Frappe input invalide',
+  caret: 'Caret input invalide',
+  'caret-limit-reached': 'Caret input invalide',
+  'caret-automation-unavailable': 'Caret input invalide',
+};
+
+// The engine writes each of these at most once; a second one means the file did not come from it.
+const singleMarkers = new Set(['keystroke-limit-reached', 'caret-limit-reached', 'caret-automation-unavailable']);
 
 const hasExactlyFields = (value, fields) =>
   Object.keys(value).length === fields.length && fields.every((field) => Object.hasOwn(value, field));
@@ -70,31 +86,41 @@ const normalizeInteractionEvent = (event) => {
   };
 };
 
-const isTypingEvent = (event) => event.event === 'keystroke' || event.event === 'keystroke-limit-reached';
+const isTypingEvent = (event) => Object.hasOwn(typingEventRefusals, event.event);
 
-const normalizeTypingEvent = (event, typingState) => {
+// The engine drops a caret outside the captured area rather than clamping it, so a position
+// outside it here did not come from the engine.
+const isCapturedAreaFraction = (value) =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+
+const normalizeTypingEvent = (event, markersSeen) => {
+  const refusal = typingEventRefusals[event.event];
   const sessionNs = sessionTimestamp(event.sessionNs);
-  if (event.event === 'keystroke-limit-reached') {
-    // The engine writes the marker once; a second one means the file did not come from it.
-    if (typingState.limitMarkerSeen) throw new Error('Frappe input invalide');
-    typingState.limitMarkerSeen = true;
-    return { event: 'keystroke-limit-reached', sessionNs };
+  if (singleMarkers.has(event.event)) {
+    if (markersSeen.has(event.event)) throw new Error(refusal);
+    markersSeen.add(event.event);
+    return { event: event.event, sessionNs };
   }
-  if (typeof event.producesCharacter !== 'boolean') throw new Error('Frappe input invalide');
+  if (event.event === 'caret') {
+    if (!isCapturedAreaFraction(event.normalizedX) || !isCapturedAreaFraction(event.normalizedY))
+      throw new Error(refusal);
+    return { event: 'caret', sessionNs, normalizedX: event.normalizedX, normalizedY: event.normalizedY };
+  }
+  if (typeof event.producesCharacter !== 'boolean') throw new Error(refusal);
   return { event: 'keystroke', sessionNs, producesCharacter: event.producesCharacter };
 };
 
-const normalizeEvent = (event, version, typingState) => {
+const normalizeEvent = (event, version, markersSeen) => {
   if (!event || typeof event !== 'object') throw new Error('Événement input invalide');
   if (version >= 2) {
     const fields = version2EventFields[event.event];
     if (!fields) throw new Error('Événement input invalide');
     if (!hasExactlyFields(event, fields))
-      throw new Error(isTypingEvent(event) ? 'Frappe input invalide' : 'Événement input invalide');
+      throw new Error(isTypingEvent(event) ? typingEventRefusals[event.event] : 'Événement input invalide');
   }
   if (isTypingEvent(event)) {
     if (version < 2) throw new Error('Événement input invalide');
-    return normalizeTypingEvent(event, typingState);
+    return normalizeTypingEvent(event, markersSeen);
   }
   return normalizeInteractionEvent(event);
 };
@@ -106,10 +132,10 @@ const normalizeInputSidecar = (value, limits = inputSidecarLimits) => {
   // Counted before any event is looked at, so an oversized file costs no per-event work.
   if (value.events.length > limits.maximumSidecarEvents)
     throw Object.assign(new Error('Sidecar input trop volumineux'), { code: 'too-many-events' });
-  const typingState = { limitMarkerSeen: false };
+  const markersSeen = new Set();
   return {
     version: value.version,
-    events: value.events.map((event) => normalizeEvent(event, value.version, typingState)),
+    events: value.events.map((event) => normalizeEvent(event, value.version, markersSeen)),
   };
 };
 

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-/// Version 2 added `keystroke` and `keystroke-limit-reached` events for typing detection.
-/// Readers still accept version 1, which holds neither.
+/// Version 2 added typing detection: `keystroke`, `keystroke-limit-reached`, `caret`,
+/// `caret-limit-reached` and `caret-automation-unavailable` events. Readers still accept
+/// version 1, which holds none of them.
 pub const INPUT_SIDECAR_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -81,7 +82,8 @@ pub enum InputKey {
     F12,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Not `Eq`: a caret position is a fraction of the captured area.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "event",
     rename_all = "kebab-case",
@@ -109,6 +111,23 @@ pub enum InputEvent {
     /// Written once, when a session reaches the contract's keystroke cap, so a typing zoom that
     /// stops appearing late in a long recording can be explained rather than looking broken.
     KeystrokeLimitReached { session_ns: u64 },
+    /// Where the text caret was while someone typed, as a fraction of the captured area, so a
+    /// typing zoom can follow text that moves. A position only: never the text around it, the
+    /// field, or the window it belongs to.
+    Caret {
+        session_ns: u64,
+        normalized_x: f64,
+        normalized_y: f64,
+    },
+    /// Written once, when a session reaches the contract's caret cap, so a typing zoom that stops
+    /// following the text late in a long recording can be explained.
+    CaretLimitReached { session_ns: u64 },
+    /// Written once, when the caret reader could not start fully. If the platform's accessibility
+    /// interface failed, the caret is read only where the older caret interface answers, so
+    /// fewer applications report one; if screen coordinates could not be made physical, no caret
+    /// is recorded at all rather than one in the wrong place. Either way, this says why the track
+    /// is thin or missing rather than leaving the gap unexplained.
+    CaretAutomationUnavailable { session_ns: u64 },
 }
 
 impl InputEvent {
@@ -118,12 +137,15 @@ impl InputEvent {
             Self::MouseButton { session_ns, .. }
             | Self::Shortcut { session_ns, .. }
             | Self::Keystroke { session_ns, .. }
-            | Self::KeystrokeLimitReached { session_ns } => *session_ns,
+            | Self::KeystrokeLimitReached { session_ns }
+            | Self::Caret { session_ns, .. }
+            | Self::CaretLimitReached { session_ns }
+            | Self::CaretAutomationUnavailable { session_ns } => *session_ns,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InputEventSidecar {
     pub version: u8,

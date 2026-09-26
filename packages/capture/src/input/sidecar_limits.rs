@@ -4,7 +4,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/input_sidecar_limits.rs"));
 
-// Keystrokes are capped so typing alone can never push a sidecar past the event bound, which
-// would make a reader refuse the whole file and lose its keyboard captions with it. A contract
-// file that breaks this fails the build rather than a recording.
-const _: () = assert!(MAXIMUM_KEYSTROKE_EVENTS < MAXIMUM_INPUT_SIDECAR_EVENTS);
+// Keystrokes and caret positions are capped so typing alone can never push a sidecar past the
+// event bound, which would make a reader refuse the whole file and lose its keyboard captions
+// with it. A contract file that breaks this fails the build rather than a recording.
+const _: () =
+    assert!(MAXIMUM_KEYSTROKE_EVENTS + MAXIMUM_CARET_EVENTS < MAXIMUM_INPUT_SIDECAR_EVENTS);

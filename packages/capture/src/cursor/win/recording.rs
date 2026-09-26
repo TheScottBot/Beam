@@ -15,12 +15,13 @@ use crate::{
         CaptureRegion, CursorEvent, CursorEventWriter, CursorRecordingPaths, finalize_after_worker,
         move_sample_due,
     },
-    input::{InputEvent, InputEventWriter, ShortcutSampler, TypingSampler},
+    input::{InputEvent, InputEventWriter, LastKeystroke, ShortcutSampler, TypingSampler},
     model::CursorSelection,
     session::StartGate,
 };
 
 use super::WindowsCursorSourceContext;
+use super::caret_worker::{CaretWorker, session_ns_since};
 use super::typing_keys::WINDOWS_TYPING_KEYS;
 use super::{sample_cursor, shortcut_key_pressed, shortcut_modifier_pressed, typing_key_pressed};
 
@@ -202,9 +203,21 @@ fn capture_loop(
     let mut next_move_sample_ns = segment_start_ns;
     let mut shortcuts = ShortcutSampler::default();
     let mut typing = TypingSampler::default();
+    let last_keystroke = LastKeystroke::default();
+    // The caret is read only with typing detection on: sampling is switched on by keystrokes,
+    // and with typing detection off there are none to switch it on.
+    let caret_worker = if capture_typing {
+        Some(CaretWorker::start(
+            region,
+            segment_start_ns,
+            started,
+            last_keystroke.clone(),
+        )?)
+    } else {
+        None
+    };
     while !cancel.load(Ordering::Acquire) {
-        let session_ns = segment_start_ns
-            .saturating_add(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
+        let session_ns = session_ns_since(segment_start_ns, started);
         match sample_cursor(region, capture_shape) {
             Ok(sample) => {
                 if move_sample_due(&mut next_move_sample_ns, session_ns) {
@@ -304,10 +317,23 @@ fn capture_loop(
                 shortcut_modifier_pressed,
                 typing_key_pressed,
             ) {
+                if matches!(event, InputEvent::Keystroke { .. }) {
+                    last_keystroke.note(session_ns);
+                }
+                input_writer.push(&event)?;
+            }
+        }
+        if let Some(caret_worker) = &caret_worker {
+            for event in caret_worker.drain() {
                 input_writer.push(&event)?;
             }
         }
         std::thread::sleep(Duration::from_millis(8));
+    }
+    if let Some(caret_worker) = caret_worker {
+        for event in caret_worker.stop() {
+            input_writer.push(&event)?;
+        }
     }
     writer.flush()?;
     input_writer.flush()

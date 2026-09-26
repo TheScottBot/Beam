@@ -90,6 +90,9 @@ test('normalizes recorded platforms and rejects unknown values', () => {
 });
 
 const {
+  caretAutomationUnavailableEvent,
+  caretEvent,
+  caretLimitReachedEvent,
   keystrokeEvent,
   keystrokeLimitReachedEvent,
   mouseButtonEvent,
@@ -180,4 +183,57 @@ test('accepts exactly the event limit and refuses one more, before reading any e
     () => normalizeInputSidecar(overLimit, smallLimits),
     (error) => error.code === 'too-many-events',
   );
+});
+
+test('reads caret positions and the caret markers in a version 2 sidecar', () => {
+  const input = sidecarVersion2([
+    caretEvent(1, 0, 0),
+    caretEvent(2, 0.999, 1),
+    caretLimitReachedEvent(3),
+    caretAutomationUnavailableEvent(0),
+  ]);
+  assert.deepEqual(normalizeInputSidecar(input), input);
+});
+
+test('refuses caret events in a version 1 sidecar, which predates them', () => {
+  for (const event of [caretEvent(0), caretLimitReachedEvent(0), caretAutomationUnavailableEvent(0)]) {
+    assert.throws(() => normalizeInputSidecar({ version: 1, events: [event] }), /Événement input invalide/);
+  }
+});
+
+test('refuses a caret position outside the captured area or not a number', () => {
+  for (const [normalizedX, normalizedY] of [
+    [-0.01, 0.5],
+    [0.5, 1.01],
+    [Number.NaN, 0.5],
+    [0.5, Infinity],
+    ['0.5', 0.5],
+    [0.5, null],
+  ]) {
+    assert.throws(
+      () => normalizeInputSidecar(sidecarVersion2([caretEvent(0, normalizedX, normalizedY)])),
+      /Caret input invalide/,
+      `${normalizedX}, ${normalizedY}`,
+    );
+  }
+});
+
+test('refuses a caret event that carries anything beyond its time and position', () => {
+  for (const extra of [{ text: 'a' }, { windowTitle: 'Notes' }, { fieldName: 'password' }]) {
+    assert.throws(
+      () => normalizeInputSidecar(sidecarVersion2([{ ...caretEvent(0), ...extra }])),
+      /Caret input invalide/,
+      JSON.stringify(extra),
+    );
+  }
+});
+
+test('refuses a second caret limit marker or a second automation marker', () => {
+  for (const marker of [caretLimitReachedEvent, caretAutomationUnavailableEvent]) {
+    assert.throws(
+      () => normalizeInputSidecar(sidecarVersion2([marker(1), marker(2)])),
+      /Caret input invalide/,
+      marker(0).event,
+    );
+  }
 });

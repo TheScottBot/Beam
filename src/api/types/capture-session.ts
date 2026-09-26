@@ -187,7 +187,13 @@ export type InputEvent =
   /** Typing detection: when a key went down and whether it would have typed a character, never which key. */
   | { event: 'keystroke'; sessionNs: number; producesCharacter: boolean }
   /** Written once when a session reached the keystroke cap; later typing was not recorded. */
-  | { event: 'keystroke-limit-reached'; sessionNs: number };
+  | { event: 'keystroke-limit-reached'; sessionNs: number }
+  /** Where the text caret was while typing, as a fraction of the captured area. Never the text. */
+  | { event: 'caret'; sessionNs: number; normalizedX: number; normalizedY: number }
+  /** Written once when a session reached the caret cap; later caret positions were not recorded. */
+  | { event: 'caret-limit-reached'; sessionNs: number }
+  /** Written once when the caret reader could not start fully, so the caret track is thin or absent. */
+  | { event: 'caret-automation-unavailable'; sessionNs: number };
 
 export interface InputEventSidecar {
   /** Version 2 added keystroke events; version 1 sidecars are still read. */

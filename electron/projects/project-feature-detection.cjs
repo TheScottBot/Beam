@@ -2,7 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { readInputSidecar } = require('./input-sidecar.cjs');
 
-const typingEventKinds = new Set(['keystroke', 'keystroke-limit-reached']);
+const typingEventKinds = new Set([
+  'keystroke',
+  'keystroke-limit-reached',
+  'caret',
+  'caret-limit-reached',
+  'caret-automation-unavailable',
+]);
 
 const hasMediaFiles = (directory, extensions) => {
   try {

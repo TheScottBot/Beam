@@ -9,7 +9,7 @@ use std::collections::{BTreeSet, HashSet};
 use capture::{
     catalog::{CatalogSnapshot, validate_request},
     input::{
-        INPUT_SIDECAR_VERSION, InputEvent, InputEventSidecar, InputModifier,
+        INPUT_SIDECAR_VERSION, InputEvent, InputEventSidecar, InputModifier, MAXIMUM_CARET_EVENTS,
         MAXIMUM_INPUT_SIDECAR_BYTES, MAXIMUM_INPUT_SIDECAR_EVENTS, MAXIMUM_KEYSTROKE_EVENTS,
         TypingKeyCategory, TypingSampler, finalize_input_events,
     },
@@ -277,6 +277,7 @@ fn the_built_limits_equal_the_shared_contract_file() {
             "maximumSidecarBytes": MAXIMUM_INPUT_SIDECAR_BYTES,
             "maximumSidecarEvents": MAXIMUM_INPUT_SIDECAR_EVENTS,
             "maximumKeystrokeEvents": MAXIMUM_KEYSTROKE_EVENTS,
+            "maximumCaretEvents": MAXIMUM_CARET_EVENTS,
         })
     );
 }
