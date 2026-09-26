@@ -14,22 +14,20 @@ import { sessionTimeAt, type MediaFrame } from '~/media/shared';
 import type { VisualClip } from '~/media/shared/composition-types';
 import { createDefaultClipAppearance } from '~/media/shared/composition-defaults';
 import { drawDecoratedMedia } from '../../composition/appearance/render-decorated-media';
-import {
-  drawFrameOverlay,
-  frameMediaRect,
-  frameOuterRect,
-  transformedFrameOuterRect,
-} from '../../composition/appearance/frames';
+import { drawFrameOverlay, frameOuterRect, transformedFrameOuterRect } from '../../composition/appearance/frames';
 import { isPhoneFrame } from '../../composition/appearance/phone-frames';
-import { mapSourcePointToScreen, resolveScreenRenderGeometry } from '../../composition/camera-layout';
+import { resolveScreenRenderGeometry } from '../../composition/camera-layout';
 import { resolveCompositionSceneLayers, type CompositionSceneLayers } from '../../composition/scene-layers';
 import type { RenderedVideoWindow, UseCameraZoomOptions, VideoWindowBounds } from './useCameraZoom.types';
 import { selectedZoomPreviewTilt } from './camera-preview-tilt';
 import { drawInCameraSpace } from './camera-space';
+import { createPreviewFocusMapper } from './preview-focus-mapper';
+import { createCaretTrackReader } from './preview-caret-track';
 export type { RenderedVideoWindow, UseCameraZoomOptions, VideoWindowBounds } from './useCameraZoom.types';
 export function useCameraZoom(options: UseCameraZoomOptions) {
   let cameraEvaluator: ReturnType<typeof createCompositionCameraEvaluator> | null = null;
   let cameraEvaluatorInputs: readonly unknown[] | null = null;
+  const readCaretTrack = createCaretTrackReader();
   const videoWindowBounds = ref<VideoWindowBounds | null>(null);
   const screenHitBounds = ref<{ dx: number; dy: number; dw: number; dh: number } | null>(null);
   const overlayWindowBounds = ref<VideoWindowBounds | null>(null);
@@ -255,11 +253,13 @@ export function useCameraZoom(options: UseCameraZoomOptions) {
     ctx.clip();
     const currentTime = options.currentTime();
     const telemetry = options.editorData()?.cursor.telemetry ?? [];
+    const caretTrack = readCaretTrack(options.editorData()?.interactions);
     const composition = options.composition();
     const selectedZoom = options.selectedZoom();
     const zooms = options.zoomElements();
     const evaluatorInputs = [
       zooms,
+      caretTrack,
       telemetry,
       composition,
       output,
@@ -283,32 +283,20 @@ export function useCameraZoom(options: UseCameraZoomOptions) {
       cameraEvaluator = createCompositionCameraEvaluator({
         zooms: previewZooms,
         telemetry,
+        caretTrack,
         autoFollow: options.zoomAutoFollow?.(),
         mapTelemetryTime: (timeMs) => {
           const activeScreen = sceneLayersAt(timeMs).screen;
           return activeScreen ? (sessionTimeAt(activeScreen, timeMs, composition) ?? timeMs) : timeMs;
         },
-        mapFocus: (focus, zoom, timeMs) => {
-          const activeScreen = sceneLayersAt(timeMs).screen;
-          if (!activeScreen || zoom.mode !== 'auto') return focus;
-          const activeGeometry = resolveScreenRenderGeometry(
-            activeScreen,
-            videoWidth,
-            videoHeight,
-            dw,
-            dh,
-            output.showBackground,
-          );
-          const positioned = isPhoneFrame(activeScreen.appearance.frame)
-            ? frameMediaRect(
-                activeGeometry.positioned,
-                activeScreen.appearance.frame,
-                activeGeometry.source.width,
-                activeGeometry.source.height,
-              )
-            : activeGeometry.positioned;
-          return mapSourcePointToScreen(focus, videoWidth, videoHeight, dw, dh, { ...activeGeometry, positioned });
-        },
+        mapFocus: createPreviewFocusMapper({
+          screenAt: (timeMs) => sceneLayersAt(timeMs).screen,
+          videoWidth,
+          videoHeight,
+          windowWidth: dw,
+          windowHeight: dh,
+          showBackground: output.showBackground,
+        }),
       });
     }
     const sample = cameraEvaluator.sample(currentTime * 1_000);

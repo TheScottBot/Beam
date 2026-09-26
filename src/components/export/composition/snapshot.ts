@@ -13,6 +13,7 @@ import type { OutputCanvasSettings } from '../../video-editor/canvas/output-canv
 import { normalizeOutputCanvas } from '../../video-editor/canvas/output-canvas';
 import { normalizeCursorAutoHideSettings, normalizeCursorMotionSettings } from '../../../api/types/cursor-settings';
 import type { CursorPackDescriptor } from '../../../api/types/cursor-pack';
+import { typingTelemetryFromInput } from '../../video-editor/zoom/typing-telemetry';
 
 const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const copyZooms = (zooms: readonly ZoomElement[]) => zooms.map((zoom) => ({ ...zoom, focus: { ...zoom.focus } }));
@@ -75,6 +76,8 @@ export function createCompositionSnapshot(input: {
     zoomMotionBlur: normalizeZoomMotionBlur(input.zoomMotionBlur),
     zoomAutoFollow: normalizeZoomAutoFollow(input.zoomAutoFollow),
     cursor: copyCursor(input.editorData?.cursor),
+    // Built fresh from the sidecar, so the snapshot owns plain copies and keeps no editor proxy.
+    caretTrack: typingTelemetryFromInput(input.editorData?.interactions).caretTrack,
     cursorSettings: cloneJson({
       ...input.cursorSettings,
       motion: normalizeCursorMotionSettings(input.cursorSettings.motion),

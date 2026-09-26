@@ -403,3 +403,43 @@ describe('createCompositionSnapshot', () => {
     expect(snapshot.composition).toBeDefined();
   });
 });
+
+describe('createCompositionSnapshot caret track', () => {
+  const cursor = { available: true, events: [], telemetry: [], shapes: {}, catalog: {}, missing: [] };
+
+  it('carries the caret track so export follows typing exactly as the preview does', () => {
+    const snapshot = createCompositionSnapshot({
+      ...base(),
+      editorData: {
+        cursor,
+        interactions: {
+          version: 2,
+          events: [
+            { event: 'caret', sessionNs: 2_000_000_000, normalizedX: 0.3, normalizedY: 0.7 },
+            { event: 'keystroke', sessionNs: 1_900_000_000, producesCharacter: true },
+          ],
+        },
+      } as never,
+    });
+    expect(snapshot.caretTrack).toEqual([{ timeMs: 2_000, cx: 0.3, cy: 0.7 }]);
+  });
+
+  it('has an empty caret track without interactions or editor data', () => {
+    expect(createCompositionSnapshot(base()).caretTrack).toEqual([]);
+    expect(createCompositionSnapshot({ ...base(), editorData: { cursor } as never }).caretTrack).toEqual([]);
+  });
+
+  it('keeps each zoom trigger, so export knows which zooms follow the caret', () => {
+    const zoom: ZoomElement = {
+      id: 'typing',
+      sessionId: 'session',
+      startMs: 0,
+      endMs: 1_000,
+      focus: { cx: 0.5, cy: 0.5 },
+      depth: 2,
+      mode: 'auto',
+      trigger: 'typing',
+    };
+    expect(createCompositionSnapshot({ ...base(), zooms: [zoom] }).zooms[0]?.trigger).toBe('typing');
+  });
+});

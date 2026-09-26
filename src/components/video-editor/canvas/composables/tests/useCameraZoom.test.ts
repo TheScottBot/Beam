@@ -5,6 +5,7 @@ import { useCameraZoom, type RenderedVideoWindow } from '../useCameraZoom';
 import * as compositionCamera from '../../../zoom/composition-camera';
 import type { ClipComposition, NormalizedTransform, VisualClip } from '~/media/shared/composition-types';
 import type { MediaFrame } from '~/media/shared';
+import type { InputEventSidecar } from '~/api/types/capture-session';
 import type { ZoomElement } from '../../../zoom/zoom-types';
 import type { CompositeMotionBlurOptions } from './use-camera-zoom-test-types';
 import { createDefaultClipAppearance } from '~/media/shared/composition-defaults';
@@ -113,6 +114,7 @@ let options!: {
   cropping: ReturnType<typeof ref<boolean>>;
   canvas: HTMLCanvasElement;
   callbacks: Record<string, ReturnType<typeof vi.fn>>;
+  editorData: { interactions?: InputEventSidecar; [key: string]: unknown };
 };
 
 const mountComposable = (motionBlurSettings = { enabled: false, intensity: 0.55 }, croppingEnabled = false) => {
@@ -212,6 +214,7 @@ const mountComposable = (motionBlurSettings = { enabled: false, intensity: 0.55 
     cropping,
     canvas,
     callbacks,
+    editorData,
   };
 };
 
@@ -941,5 +944,34 @@ describe('useCameraZoom', () => {
       focusY: expect.closeTo(firstRun!.focusY, 0.0001),
       scale: expect.closeTo(firstRun!.scale, 0.0001),
     });
+  });
+});
+
+describe('useCameraZoom caret track', () => {
+  const sidecarWithCaret = (normalizedX: number): InputEventSidecar => ({
+    version: 2,
+    events: [{ event: 'caret', sessionNs: 300_000_000, normalizedX, normalizedY: 0.6 }],
+  });
+
+  it('gives the preview camera the session caret track', () => {
+    mountComposable();
+    options.editorData.interactions = sidecarWithCaret(0.4);
+    const createEvaluator = vi.spyOn(compositionCamera, 'createCompositionCameraEvaluator');
+    state.drawVideoWindow(context(), 800, 450, frame());
+    expect(createEvaluator).toHaveBeenLastCalledWith(
+      expect.objectContaining({ caretTrack: [{ timeMs: 300, cx: 0.4, cy: 0.6 }] }),
+    );
+  });
+
+  it('rebuilds the camera only when the interactions change, not on every frame', () => {
+    mountComposable();
+    options.editorData.interactions = sidecarWithCaret(0.4);
+    const createEvaluator = vi.spyOn(compositionCamera, 'createCompositionCameraEvaluator');
+    state.drawVideoWindow(context(), 800, 450, frame());
+    state.drawVideoWindow(context(), 800, 450, frame());
+    expect(createEvaluator).toHaveBeenCalledOnce();
+    options.editorData.interactions = sidecarWithCaret(0.7);
+    state.drawVideoWindow(context(), 800, 450, frame());
+    expect(createEvaluator).toHaveBeenCalledTimes(2);
   });
 });

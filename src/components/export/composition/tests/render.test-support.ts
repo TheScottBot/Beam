@@ -75,6 +75,7 @@ export const snapshot = (): CompositionSnapshot => ({
     catalog: {},
     events: [],
   },
+  caretTrack: [],
   cursorSettings: {
     selection: {
       packId: MACOS_CURSOR_PACK.id,

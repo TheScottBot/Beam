@@ -1,6 +1,8 @@
 import type { CursorTelemetryPoint } from '../../../api/types/capture-session';
 import { createCameraVelocity, stepCameraSpring, type CameraTransform, type CameraVelocity } from './zoom-spring';
 import { clampFocusToScale, createZoomTimeEvaluator, cursorFocusAt } from './zoom-playback';
+import { caretFocusAt } from './caret-follow';
+import type { CaretSample } from './typing-zoom-types';
 import {
   cameraSpringOmega,
   createAutoFollowState,
@@ -33,6 +35,8 @@ export interface CompositionCameraEvaluator {
 export interface CompositionCameraInputs {
   zooms: readonly ZoomElement[];
   telemetry: readonly CursorTelemetryPoint[];
+  /** On the cursor telemetry clock. Absent for recordings without typing detection. */
+  caretTrack?: readonly CaretSample[];
   mapFocus?: (focus: ZoomFocus, zoom: AppliedZoom, timeMs: number) => ZoomFocus;
   mapTelemetryTime?: (timelineTimeMs: number) => number;
   autoFollow?: ZoomAutoFollowSettings;
@@ -74,20 +78,31 @@ export function createCompositionCameraEvaluator(inputs: CompositionCameraInputs
   const zoomAt = createZoomTimeEvaluator(inputs.zooms, inputs.telemetry, inputs.mapFocus);
   const autoFollowSettings = normalizeZoomAutoFollow(inputs.autoFollow ?? DEFAULT_ZOOM_AUTO_FOLLOW);
   const sortedTelemetry = [...inputs.telemetry].sort((left, right) => left.timeMs - right.timeMs);
+  const sortedCaretTrack = [...(inputs.caretTrack ?? [])].sort((left, right) => left.timeMs - right.timeMs);
   const targetAt = (
     timeMs: number,
     autoFollow: AutoFollowState,
-  ): { camera: CameraTransform; tracksCursor: boolean } => {
+  ): { camera: CameraTransform; followsTarget: boolean } => {
     const zoom = zoomAt(timeMs);
     if (!zoom) {
       updateAutoFollowTarget(autoFollow, null, { cx: 0.5, cy: 0.5 }, 1, 0, timeMs);
-      return { camera: { focusX: 0.5, focusY: 0.5, scale: 1, tiltX: 0, tiltY: 0 }, tracksCursor: false };
+      return { camera: { focusX: 0.5, focusY: 0.5, scale: 1, tiltX: 0, tiltY: 0 }, followsTarget: false };
     }
     let focus = clampFocusToScale(zoom.focus, zoom.scale);
-    if (zoom.tracksCursor) {
-      const rawCursor = cursorFocusAt(sortedTelemetry, inputs.mapTelemetryTime?.(timeMs) ?? timeMs);
-      const cursor = rawCursor ? (inputs.mapFocus?.(rawCursor, zoom, timeMs) ?? rawCursor) : null;
-      focus = updateAutoFollowTarget(autoFollow, cursor, focus, zoom.scale, zoom.strength, timeMs);
+    const follows = zoom.tracksCursor === true || zoom.tracksCaret === true;
+    if (follows) {
+      const telemetryTimeMs = inputs.mapTelemetryTime?.(timeMs) ?? timeMs;
+      // The caret and the pointer share the telemetry clock, the source coordinates and the
+      // safe zone spring; only which of them the camera watches differs.
+      const rawFollowed = zoom.tracksCaret
+        ? caretFocusAt(
+            sortedCaretTrack,
+            telemetryTimeMs,
+            inputs.mapTelemetryTime?.(zoom.regionStartMs ?? 0) ?? zoom.regionStartMs ?? 0,
+          )
+        : cursorFocusAt(sortedTelemetry, telemetryTimeMs);
+      const followed = rawFollowed ? (inputs.mapFocus?.(rawFollowed, zoom, timeMs) ?? rawFollowed) : null;
+      focus = updateAutoFollowTarget(autoFollow, followed, focus, zoom.scale, zoom.strength, timeMs);
     } else updateAutoFollowTarget(autoFollow, null, focus, zoom.scale, 0, timeMs);
     const tilt = cameraTiltForControls(
       zoom.tilt,
@@ -96,7 +111,7 @@ export function createCompositionCameraEvaluator(inputs: CompositionCameraInputs
     );
     return {
       camera: { focusX: focus.cx, focusY: focus.cy, scale: zoom.scale, ...tilt },
-      tracksCursor: zoom.tracksCursor === true,
+      followsTarget: follows,
     };
   };
   const initialState = (): SimulationState => {
@@ -121,7 +136,7 @@ export function createCompositionCameraEvaluator(inputs: CompositionCameraInputs
         target.camera,
         state.velocity,
         STEP_MS,
-        target.tracksCursor ? cameraSpringOmega(autoFollowSettings.responsiveness) : undefined,
+        target.followsTarget ? cameraSpringOmega(autoFollowSettings.responsiveness) : undefined,
       );
       if (step % CHECKPOINT_STEPS === 0) checkpoints.set(step, cloneState(state));
     }

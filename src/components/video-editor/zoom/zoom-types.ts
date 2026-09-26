@@ -52,6 +52,14 @@ export interface AppliedZoom {
   mode: ZoomElement['mode'];
   /** True only while an automatic region should follow cursor telemetry. */
   tracksCursor?: boolean;
+  /**
+   * True only while an automatic typing region should follow the caret. While someone types, the
+   * pointer is parked wherever they left it, often far from the text, so a typing zoom follows the
+   * caret instead, the only thing that stays with the text as a page scrolls.
+   */
+  tracksCaret?: boolean;
+  /** Where the followed region began on the timeline; carets from before it are other typing. */
+  regionStartMs?: number;
   tilt: number;
   tiltHorizontal?: number;
   tiltVertical?: number;

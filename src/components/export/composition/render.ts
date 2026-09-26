@@ -221,6 +221,7 @@ export const createSnapshotCameraEvaluator = (
   createCompositionCameraEvaluator({
     zooms: snapshot.zooms,
     telemetry: snapshot.cursor.telemetry,
+    caretTrack: snapshot.caretTrack,
     autoFollow: snapshot.zoomAutoFollow,
     mapTelemetryTime: (timeMs) => {
       const screen = resolveCompositionSceneLayers(snapshot.composition, timeMs).screen;

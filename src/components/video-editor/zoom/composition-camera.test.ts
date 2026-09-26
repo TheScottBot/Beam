@@ -204,3 +204,73 @@ describe('composition camera evaluator', () => {
     }
   });
 });
+
+describe('composition camera following the caret', () => {
+  const typingZoom: ZoomElement = { ...autoZoom, id: 'typing', trigger: 'typing' };
+  const pointerFarRight = [
+    { timeMs: 0, cx: 0.95, cy: 0.5 },
+    { timeMs: 5_000, cx: 0.95, cy: 0.5 },
+  ];
+
+  it('moves a typing zoom when the caret leaves the safe zone, and ignores the pointer', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: pointerFarRight,
+      caretTrack: [{ timeMs: 2_000, cx: 0.5, cy: 0.9 }],
+      autoFollow,
+    });
+    const sample = evaluator.sample(4_000);
+    expect(sample.focus.cy).toBeGreaterThan(0.5);
+    expect(sample.focus.cx).toBe(0.5);
+  });
+
+  it('holds a typing zoom still while the caret stays inside the safe zone', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: pointerFarRight,
+      caretTrack: [{ timeMs: 2_000, cx: 0.55, cy: 0.45 }],
+      autoFollow,
+    });
+    expect(evaluator.sample(4_000).focus).toEqual({ cx: 0.5, cy: 0.5 });
+  });
+
+  it('holds a typing zoom on its own focus when there is no caret track at all', () => {
+    const evaluator = createCompositionCameraEvaluator({ zooms: [typingZoom], telemetry: pointerFarRight, autoFollow });
+    expect(evaluator.sample(4_000).focus).toEqual({ cx: 0.5, cy: 0.5 });
+  });
+
+  it('does not follow a caret recorded before the typing zoom began', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [{ ...typingZoom, startMs: 3_000 }],
+      telemetry: pointerFarRight,
+      caretTrack: [{ timeMs: 2_900, cx: 0.5, cy: 0.9 }],
+      autoFollow,
+    });
+    expect(evaluator.sample(4_900).focus).toEqual({ cx: 0.5, cy: 0.5 });
+  });
+
+  it('reads the caret through the active screen source time mapping, like the pointer', () => {
+    const mapTelemetryTime = vi.fn((timeMs: number) => timeMs + 10_000);
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: pointerFarRight,
+      caretTrack: [{ timeMs: 12_000, cx: 0.5, cy: 0.9 }],
+      autoFollow,
+      mapTelemetryTime,
+    });
+    expect(evaluator.sample(4_000).focus.cy).toBeGreaterThan(0.5);
+    expect(mapTelemetryTime).toHaveBeenCalled();
+  });
+
+  it('lets a manual typing zoom stay exactly where it was put', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [{ ...typingZoom, mode: 'manual', focus: { cx: 0.6, cy: 0.4 } }],
+      telemetry: pointerFarRight,
+      caretTrack: [{ timeMs: 2_000, cx: 0.1, cy: 0.9 }],
+      autoFollow,
+    });
+    const sample = evaluator.sample(4_000);
+    expect(sample.focus.cx).toBeCloseTo(0.6, 6);
+    expect(sample.focus.cy).toBeCloseTo(0.4, 6);
+  });
+});

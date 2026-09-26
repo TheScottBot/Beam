@@ -1,5 +1,6 @@
 import type { ProjectEditorData } from '../../api/types/capture-api';
 import type { ZoomElement } from '../video-editor/zoom/zoom-types';
+import type { CaretSample } from '../video-editor/zoom/typing-zoom-types';
 import type { ZoomAutoFollowSettings, ZoomMotionBlurSettings } from '../video-editor/zoom/zoom-types';
 import type { ClipComposition } from '~/media/shared/composition-types';
 import type { OutputCanvasSettings } from '../video-editor/canvas/output-canvas';
@@ -50,6 +51,8 @@ export interface CompositionSnapshot {
   zoomMotionBlur?: ZoomMotionBlurSettings;
   zoomAutoFollow?: ZoomAutoFollowSettings;
   cursor: ProjectEditorData['cursor'];
+  /** Where the caret was while typing, so typing zooms follow it in export as in the preview. */
+  caretTrack: CaretSample[];
   cursorSettings: CursorRenderSettings;
   cursorPack: CursorPackDescriptor | null;
   composition: ClipComposition;
