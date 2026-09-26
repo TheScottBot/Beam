@@ -52,6 +52,8 @@ export interface RecordingConfiguration {
   countdownSeconds: number;
   recordingBarVisibility: RecordingBarVisibility;
   recordInteractions?: boolean;
+  /** Keystroke timing for typing zooms; only `true` asks the engine for it. */
+  detectTyping?: boolean;
   region?: ScreenRegion | null;
   regionOverlay?: ScreenRegionOverlayOptions | null;
   projectId?: string;

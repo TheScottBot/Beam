@@ -71,7 +71,10 @@ const AudioPanel = {
     </div>
   `,
 };
-const ZoomPanel = { template: '<div class="zoom-panel-stub">Zoom</div>' };
+const ZoomPanel = {
+  props: ['typingNotices'],
+  template: '<div class="zoom-panel-stub" :data-typing-notices="JSON.stringify(typingNotices ?? [])">Zoom</div>',
+};
 const SettingsPanel = {
   template: '<div class="settings-panel-stub">Settings</div>',
 };
@@ -1030,5 +1033,44 @@ describe('PropertiesPanel', () => {
     });
     expect(canvas.find('.properties-footer').exists()).toBe(false);
     canvas.unmount();
+  });
+});
+
+describe('PropertiesPanel typing notices', () => {
+  const noticesFrom = (wrapper: ReturnType<typeof mount>) =>
+    JSON.parse(wrapper.get('.zoom-panel-stub').attributes('data-typing-notices') ?? '[]');
+
+  it('tells the zoom panel what typing did in the latest generation', () => {
+    const wrapper = mount(PropertiesPanel, {
+      props: {
+        ...baseProps,
+        activeTab: 'zoom',
+        typingSuggestionSummary: {
+          burstsDetected: 3,
+          burstsApplied: 2,
+          burstsDeclinedForFocus: 1,
+          burstsLimitedByClick: 0,
+        },
+      },
+      global,
+    });
+    expect(noticesFrom(wrapper)).toEqual([{ key: 'typingDeclined', params: { declined: 1, detected: 3 } }]);
+  });
+
+  it('tells the zoom panel when the keyboard data could not be read', () => {
+    const wrapper = mount(PropertiesPanel, {
+      props: {
+        ...baseProps,
+        activeTab: 'zoom',
+        editorData: { interactionsRefusedReason: 'invalid' } as never,
+      },
+      global,
+    });
+    expect(noticesFrom(wrapper)).toEqual([{ key: 'interactionsRefused' }]);
+  });
+
+  it('has nothing to tell without typing', () => {
+    const wrapper = mount(PropertiesPanel, { props: { ...baseProps, activeTab: 'zoom' }, global });
+    expect(noticesFrom(wrapper)).toEqual([]);
   });
 });

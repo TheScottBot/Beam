@@ -10,6 +10,7 @@ import type {
   NormalizedCrop,
 } from '~/media/shared/composition-types';
 import type { ProjectEditorData } from '../../../api/types/capture-api';
+import type { TypingSuggestionSummary } from '../zoom/typing-zoom-types';
 import type { OutputCanvasSettings } from '../canvas/output-canvas';
 import type { ShadowDirection } from './cursor/shadow-types';
 import type {
@@ -55,6 +56,8 @@ export interface PropertiesPanelProps {
   canGenerateZooms: boolean;
   hasAutomaticZooms: boolean;
   zoomAutoFollow?: ZoomAutoFollowSettings;
+  /** What typing did in the latest zoom generation; null without typing. */
+  typingSuggestionSummary?: TypingSuggestionSummary | null;
   zoomMotionBlur?: ZoomMotionBlurSettings;
   composition: ClipComposition;
   editorData?: ProjectEditorData | null;

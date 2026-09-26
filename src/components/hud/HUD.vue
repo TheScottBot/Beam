@@ -54,6 +54,7 @@ const {
   countdownSeconds,
   recordingBarVisibility,
   interactionAccess,
+  typingDetection,
   hudIssues,
   windowPreviews,
   screenPreviews,
@@ -161,10 +162,13 @@ const {
         :input-access="interactionAccess.status.value"
         :record-interactions="interactionAccess.enabled.value"
         :requesting-input-access="interactionAccess.requesting.value"
+        :typing-detection="typingDetection.recordingEnabled.value"
+        :typing-detection-availability="typingDetection.availability.value"
         :platform="desktopPlatform"
         @update:countdown-seconds="countdownSeconds = $event"
         @update:recording-bar-visibility="recordingBarVisibility = $event"
         @update:record-interactions="interactionAccess.setEnabled"
+        @update:typing-detection="typingDetection.setEnabled"
         @request-input-access="authorizeInteractionAccess"
         @close="showSettings = false"
       />

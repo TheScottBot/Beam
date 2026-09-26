@@ -391,3 +391,42 @@ describe('ZoomPanel', () => {
     ]);
   });
 });
+
+describe('ZoomPanel typing zooms', () => {
+  const mountWith = (props: Record<string, unknown>) =>
+    mount(ZoomPanel, {
+      props: {
+        selectedZoom: null,
+        canGenerate: true,
+        hasAutomaticZooms: true,
+        motionBlur: { enabled: true, intensity: 0.55 },
+        ...props,
+      },
+      global: { stubs: { Button, ButtonGroup, BigSlider, Switch } },
+    });
+
+  it('names the automatic mode after the caret for a typing zoom, and says how to take control', () => {
+    const wrapper = mountWith({ selectedZoom: { ...selectedZoom, trigger: 'typing' } });
+    expect(wrapper.text()).toContain('Auto (Caret)');
+    expect(wrapper.text()).not.toContain('Auto (Cursor)');
+    expect(wrapper.text()).toContain('Switch to Manual Focus to drag it');
+  });
+
+  it('keeps the cursor wording for a click zoom', () => {
+    const wrapper = mountWith({ selectedZoom });
+    expect(wrapper.text()).toContain('Auto (Cursor)');
+    expect(wrapper.text()).not.toContain('Auto (Caret)');
+  });
+
+  it('shows typing notices as one announced card, and nothing when there are none', () => {
+    const quiet = mountWith({ typingNotices: [] });
+    expect(quiet.find('.typing-outcome').exists()).toBe(false);
+    const wrapper = mountWith({
+      typingNotices: [{ key: 'caretLimitReached' }, { key: 'typingDeclined', params: { declined: 2, detected: 5 } }],
+    });
+    const card = wrapper.get('.typing-outcome');
+    expect(card.attributes('role')).toBe('status');
+    expect(card.text()).toContain('The caret track reached its limit');
+    expect(card.text()).toContain('2 of 5');
+  });
+});

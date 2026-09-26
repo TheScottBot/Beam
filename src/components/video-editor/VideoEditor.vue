@@ -263,6 +263,7 @@ const {
   selectedZoom,
   canGenerateZooms,
   hasAutomaticZooms,
+  typingSuggestionSummary,
   selectZooms,
   addZoomAtTime,
   generateZooms,
@@ -918,6 +919,7 @@ capture.reportEditorLoadingStage?.('renderingEditor');
           :has-automatic-zooms="hasAutomaticZooms"
           :zoom-motion-blur="zoomMotionBlur"
           :zoom-auto-follow="zoomAutoFollow"
+          :typing-suggestion-summary="typingSuggestionSummary"
           :composition="composition"
           :editor-data="editorData"
           :timeline-duration-ms="Math.round(duration * 1000)"

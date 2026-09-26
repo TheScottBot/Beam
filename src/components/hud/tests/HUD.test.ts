@@ -1562,3 +1562,46 @@ describe('HUD', () => {
     expect(wrapper.find('.hud-body').exists()).toBe(false);
   });
 });
+
+describe('HUD typing detection', () => {
+  const preferencesWithTyping = (typingDetection?: { enabled: boolean }) => ({
+    schemaVersion: 3,
+    theme: 'system',
+    recordingBar: { visibility: 'always' },
+    recordingInteractions: { enabled: false, noticeDismissed: false },
+    ...(typingDetection ? { typingDetection } : {}),
+    alwaysOnTop: true,
+    devices: { cameraId: 'camera:chromium:device-1', micId: 'microphone:chromium:device-1', systemAudioMode: 'off' },
+    shortcuts: {},
+    backgroundPresets: { colors: [], gradients: [] },
+    extras: {},
+  });
+
+  const startRecordingWith = async (platform: string, typingDetection?: { enabled: boolean }) => {
+    capture.platform = platform;
+    Object.defineProperty(window, 'capture', { configurable: true, value: capture });
+    capture.getPreferences.mockResolvedValueOnce(preferencesWithTyping(typingDetection));
+    const wrapper = mount(HUD, { global: { stubs } });
+    await ready();
+    const record = wrapper.findAll('button').find((button) => button.text().includes('Start Recording'))!;
+    await record.trigger('click');
+    await ready();
+    return wrapper.emitted('start-recording');
+  };
+
+  it('asks for typing detection when it is switched on and keyboard access is available', async () => {
+    expect(await startRecordingWith('darwin', { enabled: true })).toEqual([
+      [expect.objectContaining({ detectTyping: true })],
+    ]);
+  });
+
+  it('leaves typing detection off for preferences saved before the setting existed', async () => {
+    expect(await startRecordingWith('darwin')).toEqual([[expect.objectContaining({ detectTyping: false })]]);
+  });
+
+  it('leaves typing detection off on Linux even when the preference is on', async () => {
+    expect(await startRecordingWith('linux', { enabled: true })).toEqual([
+      [expect.objectContaining({ detectTyping: false })],
+    ]);
+  });
+});

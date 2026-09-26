@@ -18,6 +18,8 @@ import type { RecordingBarVisibility } from '../recorder/recording-types';
 import type { InteractionAccessViewState } from '../interactions/interaction-access-types';
 import InteractionAccessControl from '../interactions/InteractionAccessControl.vue';
 import InteractionAccessError from '../interactions/InteractionAccessError.vue';
+import Switch from '~/ui/switch/Switch.vue';
+import type { TypingDetectionAvailability } from '../interactions/useTypingDetection';
 import SpellCheckPreference from '~/components/settings/SpellCheckPreference.vue';
 
 const { t } = useTranslate('HudPreferences');
@@ -29,6 +31,8 @@ const props = withDefaults(
     recordingBarVisibility?: RecordingBarVisibility;
     inputAccess?: InteractionAccessViewState;
     recordInteractions?: boolean;
+    typingDetection?: boolean;
+    typingDetectionAvailability?: TypingDetectionAvailability;
     requestingInputAccess?: boolean;
     platform?: string;
     view?: 'general' | 'shortcuts' | 'about';
@@ -43,6 +47,8 @@ const props = withDefaults(
       recordsText: false,
     }),
     recordInteractions: false,
+    typingDetection: false,
+    typingDetectionAvailability: 'checking',
     requestingInputAccess: false,
     platform: 'unknown',
     view: 'general',
@@ -53,6 +59,7 @@ const emit = defineEmits<{
   (event: 'update:countdownSeconds', value: number): void;
   (event: 'update:recordingBarVisibility', value: RecordingBarVisibility): void;
   (event: 'update:recordInteractions', value: boolean): void;
+  (event: 'update:typingDetection', value: boolean): void;
   (event: 'requestInputAccess'): void;
   (event: 'update:view', value: 'general' | 'shortcuts' | 'about'): void;
   (event: 'close'): void;
@@ -71,6 +78,15 @@ const inputDescription = computed(() => {
   }
   return t(props.platform === 'linux' ? 'interactionAccessDescriptionLinux' : 'interactionAccessDescription');
 });
+const typingDetectionDescription = computed(
+  () =>
+    ({
+      available: t('typingDetectionDescription'),
+      checking: t('checkingAccess'),
+      'needs-keyboard-access': t('typingDetectionNeedsAccess'),
+      'unsupported-platform': t('typingDetectionLinux'),
+    })[props.typingDetectionAvailability],
+);
 const interactionTitle = computed(() =>
   t(props.platform === 'linux' ? 'recordInteractionsLinux' : 'recordInteractions'),
 );
@@ -155,6 +171,20 @@ const openOnboarding = () => {
                 @update:enabled="emit('update:recordInteractions', $event)"
               />
             </div>
+          </div>
+
+          <div class="preference-item typing-detection-item">
+            <div class="preference-copy">
+              <p class="preference-title">{{ t('typingDetection') }}</p>
+              <p class="preference-description" aria-live="polite">{{ typingDetectionDescription }}</p>
+            </div>
+            <Switch
+              class="preference-control"
+              :model-value="typingDetection"
+              :disabled="typingDetectionAvailability !== 'available'"
+              :aria-label="t('typingDetection')"
+              @update:model-value="emit('update:typingDetection', $event)"
+            />
           </div>
 
           <div class="preference-item">

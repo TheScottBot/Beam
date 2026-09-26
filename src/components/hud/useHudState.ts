@@ -12,6 +12,7 @@ import { useTranslate } from '~/i18n/useTranslate';
 import { useAudioLevelMeter } from './audio/useAudioLevelMeter';
 import type { RecordingBarVisibility } from './recorder/recording-types';
 import { useInteractionAccess } from './interactions/useInteractionAccess';
+import { useTypingDetection } from './interactions/useTypingDetection';
 import { useHudNavigation } from './navigation/useHudNavigation';
 import { useNativeSystemAudioPreview } from './recorder/useNativeSystemAudioPreview';
 import { useHudIssues } from './useHudIssues';
@@ -48,6 +49,7 @@ export function useHudState(props: HudProps, emit: HudEmit) {
   const recordingBarVisibility = ref<RecordingBarVisibility>('always');
   watch(recordingBarVisibility, (value) => void capture.updatePreferences({ recordingBar: { visibility: value } }));
   const interactionAccess = useInteractionAccess(desktopPlatform);
+  const typingDetection = useTypingDetection(desktopPlatform, interactionAccess.status);
   const captureCatalog = ref<CaptureCatalog | null>(null);
   const { captureMode, hydrateMode, modeShortcut, captureWithMode } = useHudCaptureMode(
     isBusy,
@@ -231,6 +233,7 @@ export function useHudState(props: HudProps, emit: HudEmit) {
           countdownSeconds: countdownSeconds.value,
           recordingBarVisibility: recordingBarVisibility.value,
           recordInteractions: interactionAccess.recordingEnabled.value,
+          detectTyping: typingDetection.recordingEnabled.value,
           region: activeTab.value === 'screen' && selectedScreenRegion.value ? { ...selectedScreenRegion.value } : null,
           regionOverlay:
             activeTab.value === 'screen' && selectedScreenOverlay.value
@@ -355,6 +358,7 @@ export function useHudState(props: HudProps, emit: HudEmit) {
     }
     recordingBarVisibility.value = preferences.recordingBar.visibility;
     interactionAccess.hydrate(preferences);
+    typingDetection.hydrate(preferences);
     if (!props.embedded) updateWindowSize();
     unsubscribeShortcut = capture.onPreferenceShortcut((actionId: string) => {
       if (actionId === 'hud.startStopRecording') {
@@ -438,6 +442,7 @@ export function useHudState(props: HudProps, emit: HudEmit) {
     countdownSeconds,
     recordingBarVisibility,
     interactionAccess,
+    typingDetection,
     hudIssues,
     windowPreviews,
     screenPreviews,

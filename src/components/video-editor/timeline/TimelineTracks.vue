@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ReorderGroup from '~/ui/transitions/ReorderGroup.vue';
 import TimelineLockOverlay from './TimelineLockOverlay.vue';
-import { Lock } from '@lucide/vue';
+import TimelineZoomLabels from './TimelineZoomLabels.vue';
 import TimelineGapButtons from './TimelineGapButtons.vue';
 import TimelineClip from './TimelineClip.vue';
 import { timelineSpanStyle } from './timeline-clip-geometry';
@@ -18,7 +18,6 @@ import { EMPTY_CLIP_TRANSITIONS } from '~/media/shared/clip-transitions';
 import { DEFAULT_OUTPUT_CANVAS } from '../canvas/output-canvas';
 import { useTimelineClipboardShortcuts } from './composables/useTimelineClipboardShortcuts';
 import TimelineTrackHeaders from './TimelineTrackHeaders.vue';
-import { normalizeZoomProjection } from '../zoom/zoom-types';
 import TimelineAddMenu from './TimelineAddMenu.vue';
 import { useTimelineItemInteractions } from './composables/useTimelineItemInteractions';
 import TimelineAudioTracks from './TimelineAudioTracks.vue';
@@ -402,18 +401,7 @@ const previewCanvasTransitions = (transitions: NonNullable<typeof props.canvas.t
                   >
                 </span>
                 <TimelineLockOverlay v-if="zoom.locked" />
-                <span class="zoom-clip-labels">
-                  <Lock v-if="zoom.locked" :size="12" :aria-label="t('locked')" />
-                  <span class="zoom-meta-badge zoom-projection-badge">
-                    {{ normalizeZoomProjection(zoom.projection) === '3d' ? '3D' : '2D' }}
-                  </span>
-                  <span class="clip-center-title zoom-title">
-                    {{ t('zoomTitle', { level: zoomScale(zoom.depth).toFixed(2) }) }}
-                  </span>
-                  <span class="zoom-meta-badge zoom-mode-badge">
-                    {{ zoom.mode === 'auto' ? t('zoomModeAuto') : t('zoomModeManual') }}
-                  </span>
-                </span>
+                <TimelineZoomLabels :zoom="zoom" :level="zoomScale(zoom.depth).toFixed(2)" />
                 <span
                   class="trim-handle end"
                   :title="t('trimEnd')"

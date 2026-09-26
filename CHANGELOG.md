@@ -7,6 +7,7 @@ User-facing changes to Beam are documented in this file.
 ### Added
 
 - Added an adjustable cursor spring when movement stops, enabled by default and saved with editor presets.
+- Added typing detection, off by default in the recorder's preferences on Windows and macOS. It records when you type, never what, and on Windows where the text caret is while you type, so automatic zooms now also zoom in on typing and follow the caret in preview and export. Typing zooms are marked on the timeline, and the Zoom panel explains typing that could not be zoomed.
 
 ### Fixed
 

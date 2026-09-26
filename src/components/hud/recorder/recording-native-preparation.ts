@@ -17,6 +17,7 @@ export async function prepareNativeRecording(configuration: RecordingConfigurati
     systemAudio: configuration.systemAudio,
     cursor: configuration.cursor !== false,
     recordInteractions: configuration.recordInteractions === true,
+    detectTyping: configuration.detectTyping === true,
     targetFps: configuration.targetFps,
     region: configuration.region,
     outputRoot: configuration.outputRoot,

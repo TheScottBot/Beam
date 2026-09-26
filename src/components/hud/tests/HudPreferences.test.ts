@@ -223,3 +223,43 @@ describe('HudPreferences', () => {
     expect(wrapper.emitted('update:alwaysOnTop')).toBeUndefined();
   });
 });
+
+describe('HudPreferences typing detection', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  const typingItem = (wrapper: ReturnType<typeof mountPreferences>) => wrapper.get('.typing-detection-item');
+
+  it('offers a named switch that says typing is timed, never recorded as text', async () => {
+    const wrapper = mountPreferences({ typingDetection: false, typingDetectionAvailability: 'available' });
+    const toggle = typingItem(wrapper).get('[role="switch"]');
+    expect(typingItem(wrapper).get('.preference-title').text()).toBe('Typing detection');
+    expect(typingItem(wrapper).get('.preference-description').text()).toContain('never what');
+    expect(toggle.attributes('aria-label')).toBe('Typing detection');
+    expect(toggle.attributes('aria-checked')).toBe('false');
+    expect(toggle.attributes('disabled')).toBeUndefined();
+    await toggle.trigger('click');
+    expect(wrapper.emitted('update:typingDetection')).toContainEqual([true]);
+  });
+
+  it('shows it off and disabled on Linux, and says why', () => {
+    const wrapper = mountPreferences({ typingDetection: false, typingDetectionAvailability: 'unsupported-platform' });
+    expect(typingItem(wrapper).get('[role="switch"]').attributes('disabled')).toBeDefined();
+    expect(typingItem(wrapper).get('.preference-description').text()).toBe('Not available on Linux yet.');
+  });
+
+  it('shows it disabled until keyboard access is granted, and points to that setting', () => {
+    const wrapper = mountPreferences({ typingDetection: false, typingDetectionAvailability: 'needs-keyboard-access' });
+    expect(typingItem(wrapper).get('[role="switch"]').attributes('disabled')).toBeDefined();
+    expect(typingItem(wrapper).get('.preference-description').text()).toBe('Needs keyboard access, above.');
+  });
+
+  it('shows it disabled while keyboard access is being checked', () => {
+    const wrapper = mountPreferences({ typingDetection: false, typingDetectionAvailability: 'checking' });
+    expect(typingItem(wrapper).get('[role="switch"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('announces a change to its description', () => {
+    const wrapper = mountPreferences({ typingDetectionAvailability: 'available' });
+    expect(typingItem(wrapper).get('.preference-description').attributes('aria-live')).toBe('polite');
+  });
+});

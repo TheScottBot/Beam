@@ -27,6 +27,7 @@ const defaults = (platform = process.platform) => ({
   hudWindow: { ...DEFAULT_HUD_WINDOW_SIZE },
   recordingBar: { visibility: platform === 'linux' ? 'hover-only' : 'always' },
   recordingInteractions: { enabled: false, noticeDismissed: false },
+  typingDetection: { enabled: false },
   voiceover: { countdownSeconds: 3, monitorProjectAudio: false },
   spellCheck: { enabled: true },
   onboardingCompleted: false,
@@ -170,6 +171,8 @@ const normalize = (value, platform = process.platform) => {
           ? next.recordingInteractions.noticeDismissed
           : base.recordingInteractions.noticeDismissed,
     },
+    // An opt in privacy setting: only the exact value true turns keystroke timing on.
+    typingDetection: { enabled: next.typingDetection?.enabled === true },
     voiceover: {
       countdownSeconds: [0, 3, 5, 10].includes(next.voiceover?.countdownSeconds)
         ? next.voiceover.countdownSeconds
@@ -253,6 +256,7 @@ function createPreferencesStore(file, { platform = process.platform } = {}) {
         ...current.recordingInteractions,
         ...(value?.recordingInteractions || {}),
       },
+      typingDetection: { ...current.typingDetection, ...value?.typingDetection },
       voiceover: { ...current.voiceover, ...value?.voiceover },
       spellCheck: { ...current.spellCheck, ...(value?.spellCheck || {}) },
       devices: { ...current.devices, ...(value?.devices || {}) },

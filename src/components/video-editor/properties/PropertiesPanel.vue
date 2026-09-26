@@ -6,6 +6,7 @@ import RecordingSidecarLinks from './clip/RecordingSidecarLinks.vue';
 import PropertiesLockGuard from './PropertiesLockGuard.vue';
 import type { PropertiesPanelProps, PropertiesPanelEmits } from './properties-panel-contract-types';
 import { computed, ref } from 'vue';
+import { typingOutcomeNotices } from '../zoom/typing-outcome';
 import CursorPanel from '~/components/video-editor/properties/cursor/CursorPanel.vue';
 import CanvasPanel from '~/components/video-editor/properties/canvas/CanvasPanel.vue';
 import AudioPanel from '~/components/video-editor/properties/audio/AudioPanel.vue';
@@ -55,6 +56,13 @@ const props = withDefaults(defineProps<PropertiesPanelProps>(), {
   zoomAutoFollow: () => ({ ...DEFAULT_ZOOM_AUTO_FOLLOW }),
   zoomMotionBlur: () => ({ ...DEFAULT_ZOOM_MOTION_BLUR }),
 });
+const typingNotices = computed(() =>
+  typingOutcomeNotices({
+    summary: props.typingSuggestionSummary ?? null,
+    interactions: props.editorData?.interactions,
+    interactionsRefusedReason: props.editorData?.interactionsRefusedReason,
+  }),
+);
 const normalizedSelectedClip = computed(() =>
   props.selectedClip
     ? {
@@ -435,6 +443,7 @@ defineExpose({ openCanvasTransitions: openTransitionEdge });
                 :has-automatic-zooms="hasAutomaticZooms"
                 :motion-blur="zoomMotionBlur"
                 :auto-follow="zoomAutoFollow"
+                :typing-notices="typingNotices"
                 @update="emit('update:zoom', $event)"
                 @update:motion-blur="emit('update:zoomMotionBlur', $event)"
                 @update:auto-follow="emit('update:zoomAutoFollow', $event)"

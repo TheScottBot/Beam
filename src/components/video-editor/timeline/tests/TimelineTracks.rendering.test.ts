@@ -717,3 +717,21 @@ describe('TimelineTracks', () => {
     expect(mounted!.get('.cursor-zoom-indicator:not(.preview-ghost)').classes()).not.toContain('paste-arrival');
   });
 });
+
+describe('TimelineTracks typing zooms', () => {
+  it('marks a typing zoom with a keyboard and the word Typing, not by colour alone', async () => {
+    const mounted = await mountTracks({
+      zoomElements: [
+        zoom({ mode: 'auto' }),
+        zoom({ id: 'typing', startMs: 4_000, endMs: 5_500, mode: 'auto', trigger: 'typing' }),
+        zoom({ id: 'typing-manual', startMs: 7_000, endMs: 8_500, mode: 'manual', trigger: 'typing' }),
+      ],
+      selectedZoomId: null,
+    });
+    const indicators = mounted!.findAll('.cursor-zoom-indicator:not(.preview-ghost)');
+    const modeBadges = indicators.map((indicator) => indicator.get('.zoom-mode-badge'));
+    expect(modeBadges.map((badge) => badge.text())).toEqual(['Auto', 'Typing', 'Manual']);
+    expect(modeBadges.map((badge) => badge.find('.zoom-typing-icon').exists())).toEqual([false, true, true]);
+    expect(modeBadges[1]!.get('.zoom-typing-icon').attributes('aria-hidden')).toBe('true');
+  });
+});

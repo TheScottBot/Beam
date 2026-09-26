@@ -6,7 +6,9 @@ import Switch from '~/ui/switch/Switch.vue';
 import Popover from '~/ui/popover/Popover.vue';
 import ZoomClickEmptyState from '~/components/video-editor/properties/zoom/ZoomClickEmptyState.vue';
 import ZoomAutoFollowControls from '~/components/video-editor/properties/zoom/ZoomAutoFollowControls.vue';
-import { MousePointer, SlidersHorizontal, Sparkles } from '@lucide/vue';
+import ZoomTypingOutcome from '~/components/video-editor/properties/zoom/ZoomTypingOutcome.vue';
+import type { TypingOutcomeNotice } from '~/components/video-editor/zoom/typing-outcome';
+import { Keyboard, MousePointer, SlidersHorizontal, Sparkles } from '@lucide/vue';
 import type {
   ZoomAutoFollowSettings,
   ZoomDepth,
@@ -36,8 +38,9 @@ const props = withDefaults(
     hasAutomaticZooms: boolean;
     motionBlur: ZoomMotionBlurSettings;
     autoFollow?: ZoomAutoFollowSettings;
+    typingNotices?: readonly TypingOutcomeNotice[];
   }>(),
-  { autoFollow: () => ({ ...DEFAULT_ZOOM_AUTO_FOLLOW }) },
+  { autoFollow: () => ({ ...DEFAULT_ZOOM_AUTO_FOLLOW }), typingNotices: () => [] },
 );
 
 const emit = defineEmits<{
@@ -162,6 +165,8 @@ const updateMotionBlur = (patch: Partial<ZoomMotionBlurSettings>) => {
       </Popover>
     </div>
 
+    <ZoomTypingOutcome :notices="typingNotices" />
+
     <ZoomAutoFollowControls :model-value="autoFollow" @update:model-value="emit('update:autoFollow', $event)" />
 
     <div class="section-block motion-blur-settings">
@@ -196,16 +201,24 @@ const updateMotionBlur = (patch: Partial<ZoomMotionBlurSettings>) => {
         <span class="section-title">{{ t('mode') }}</span>
         <ButtonGroup class="zoom-mode-options" full>
           <Button size="xs" :variant="selectedZoom.mode === 'auto' ? 'primary' : 'ghost'" @click="setMode('auto')">
-            {{ t('autoCursor') }}
+            {{ t(selectedZoom.trigger === 'typing' ? 'autoCaret' : 'autoCursor') }}
           </Button>
           <Button size="xs" :variant="selectedZoom.mode === 'manual' ? 'primary' : 'ghost'" @click="setMode('manual')">
             {{ t('manualFocus') }}
           </Button>
         </ButtonGroup>
         <div class="hint-card">
-          <MousePointer :size="13" class="hint-icon" />
+          <component :is="selectedZoom.trigger === 'typing' ? Keyboard : MousePointer" :size="13" class="hint-icon" />
           <span>
-            {{ selectedZoom.mode === 'manual' ? t('manualHint') : t('autoHint') }}
+            {{
+              t(
+                selectedZoom.mode === 'manual'
+                  ? 'manualHint'
+                  : selectedZoom.trigger === 'typing'
+                    ? 'typingAutoHint'
+                    : 'autoHint',
+              )
+            }}
           </span>
         </div>
       </div>
@@ -326,6 +339,7 @@ const updateMotionBlur = (patch: Partial<ZoomMotionBlurSettings>) => {
   </div>
 </template>
 
+<style scoped src="./zoom-hint-card.css"></style>
 <style scoped>
 .zoom-panel {
   display: flex;
@@ -376,25 +390,6 @@ const updateMotionBlur = (patch: Partial<ZoomMotionBlurSettings>) => {
 .depth-badge {
   font-size: 11px;
   font-weight: 700;
-  color: var(--color-primary);
-}
-
-.hint-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px;
-  background: var(--color-bg-surface-hover);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-.hint-icon {
-  flex-shrink: 0;
-  margin-top: 1px;
   color: var(--color-primary);
 }
 

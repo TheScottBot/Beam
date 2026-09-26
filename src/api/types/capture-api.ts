@@ -290,6 +290,8 @@ export interface PreferenceSettings {
   hudWindow?: { width: number; height: number };
   recordingBar: { visibility: RecordingBarVisibility };
   recordingInteractions: { enabled: boolean; noticeDismissed: boolean };
+  /** Keystroke timing for typing zooms. Absent means off: it is an opt in privacy setting. */
+  typingDetection?: { enabled: boolean };
   voiceover?: { countdownSeconds: 0 | 3 | 5 | 10; monitorProjectAudio: boolean };
   spellCheck?: { enabled: boolean };
   onboardingCompleted?: boolean;

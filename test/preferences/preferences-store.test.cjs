@@ -399,3 +399,29 @@ test('normalizes and patches appearance customizer settings properly', () => {
   assert.equal(themePatched.appearance.theme, 'dark');
   assert.equal(themePatched.appearance.primaryColor, '#8b5cf6');
 });
+
+test('typing detection is off by default and after migrating older preferences', () => {
+  assert.deepEqual(defaults().typingDetection, { enabled: false });
+  assert.deepEqual(normalize({ schemaVersion: 2, theme: 'dark' }).typingDetection, { enabled: false });
+});
+
+test('typing detection is on only for the exact value true', () => {
+  assert.deepEqual(normalize({ typingDetection: { enabled: true } }).typingDetection, { enabled: true });
+  for (const enabled of ['true', 1, null, {}, undefined]) {
+    assert.deepEqual(normalize({ typingDetection: { enabled } }).typingDetection, { enabled: false }, String(enabled));
+  }
+});
+
+test('typing detection keeps no field it does not know', () => {
+  assert.deepEqual(normalize({ typingDetection: { enabled: true, keys: ['a'] } }).typingDetection, { enabled: true });
+});
+
+test('a typing detection patch is saved and does not touch keyboard shortcut recording', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'demo-preferences-'));
+  const store = createPreferencesStore(directory);
+  store.patch({ recordingInteractions: { enabled: true } });
+  const saved = store.patch({ typingDetection: { enabled: true } });
+  assert.deepEqual(saved.typingDetection, { enabled: true });
+  assert.equal(saved.recordingInteractions.enabled, true);
+  assert.deepEqual(createPreferencesStore(directory).read().typingDetection, { enabled: true });
+});
