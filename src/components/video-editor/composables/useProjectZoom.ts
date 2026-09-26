@@ -1,5 +1,7 @@
 import type { ClipComposition } from '~/media/shared/composition-types';
-import { generateRecordingZooms } from '../zoom/recording-zoom-generation';
+import { generateRecordingZoomPlan } from '../zoom/recording-zoom-generation';
+import { typingTelemetryFromInput } from '../zoom/typing-telemetry';
+import type { TypingSuggestionSummary } from '../zoom/typing-zoom-types';
 import { preservesLockedItems, TimelineLockedError } from '../composition/timeline-locks';
 import { useLockedState } from './useLockedState';
 import { computed, ref, watch, type Ref } from 'vue';
@@ -36,6 +38,8 @@ export function useProjectZoom(options: {
   const generatedSessions = ref<ProjectEditorData['zoom']['generatedSessions']>([]);
   const zoomMotionBlur = ref<ZoomMotionBlurSettings>({ ...DEFAULT_ZOOM_MOTION_BLUR });
   const zoomAutoFollow = ref<ZoomAutoFollowSettings>({ ...DEFAULT_ZOOM_AUTO_FOLLOW });
+  // What typing did in the latest generation, kept for the editor to explain; null without typing.
+  const typingSuggestionSummary = ref<TypingSuggestionSummary | null>(null);
   const selectedZoomId = ref<string | null>(null);
   const selectedZoomIds = ref<string[]>([]);
   const selectedZoom = computed(
@@ -109,7 +113,7 @@ export function useProjectZoom(options: {
     if (!data?.cursor.available) return;
     const generationDurationMs = Math.min(durationMs.value, data.manifest.durationNs / 1_000_000);
     if (generationDurationMs <= 0) return;
-    const generated = generateRecordingZooms(
+    const plan = generateRecordingZoomPlan(
       options.composition.value,
       data.sessionId,
       data.cursor.telemetry,
@@ -120,7 +124,10 @@ export function useProjectZoom(options: {
           element.linkedClipId === null ||
           element.sessionId !== data.sessionId,
       ),
+      typingTelemetryFromInput(data.interactions),
     );
+    const generated = plan.elements;
+    typingSuggestionSummary.value = plan.typing ?? null;
     zoomElements.value = [
       ...zoomElements.value.filter(
         (element) =>
@@ -215,6 +222,7 @@ export function useProjectZoom(options: {
     generatedSessions,
     zoomMotionBlur,
     zoomAutoFollow,
+    typingSuggestionSummary,
     selectedZoomId,
     selectedZoomIds,
     selectedZoom,

@@ -3,15 +3,18 @@ import {
   DEFAULT_ZOOM_DEPTH,
   DEFAULT_ZOOM_TILT_HORIZONTAL,
   DEFAULT_ZOOM_TILT_INTENSITY,
+  DEFAULT_ZOOM_TILT_PRESET,
   DEFAULT_ZOOM_TILT_VERTICAL,
   type ZoomElement,
   type ZoomFocus,
 } from './zoom-types';
 import { fitZoomPlacement } from './zoom-placement';
 import { suggestAutomaticTilt } from './automatic-tilt';
+import { buildTypingBurstCandidates } from './typing-bursts';
+import { buildTypingZoomRegions } from './typing-zoom-regions';
+import type { TypingSuggestionSummary, TypingTelemetry } from './typing-zoom-types';
+import { CLICK_CLUSTER_GAP_MS, ZOOM_REGION_PADDING_MS } from './zoom-suggestion-timing';
 
-export const CLICK_CLUSTER_GAP_MS = 2500;
-export const ZOOM_REGION_PADDING_MS = 500;
 export const ZOOM_ALGORITHM_VERSION = 8;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -69,16 +72,23 @@ function clusterClicks(samples: CursorTelemetryPoint[]): ClickCluster[] {
   return clusters;
 }
 
-export function buildAutomaticZoomElements(params: {
+export interface AutomaticZoomPlan {
+  elements: ZoomElement[];
+  /** Present only when the recording held keystrokes, so a recording without typing is unchanged. */
+  typing?: TypingSuggestionSummary;
+}
+
+export function buildAutomaticZoomPlan(params: {
   telemetry: CursorTelemetryPoint[];
   sessionId: string;
   durationMs: number;
   reserved?: ZoomElement[];
-}): ZoomElement[] {
-  if (params.durationMs <= 0) return [];
+  typing?: TypingTelemetry;
+}): AutomaticZoomPlan {
+  if (params.durationMs <= 0) return { elements: [] };
   const reserved = params.reserved ?? [];
   const telemetry = normalizeCursorTelemetry(params.telemetry, params.durationMs);
-  return clusterClicks(telemetry).flatMap((cluster) => {
+  const clickElements = clusterClicks(telemetry).flatMap((cluster) => {
     const requestedStartMs = Math.round(clamp(cluster.firstMs - ZOOM_REGION_PADDING_MS, 0, params.durationMs));
     const requestedEndMs = Math.round(clamp(cluster.lastMs + ZOOM_REGION_PADDING_MS, 0, params.durationMs));
     const placement = fitZoomPlacement({
@@ -106,4 +116,45 @@ export function buildAutomaticZoomElements(params: {
       },
     ];
   });
+  const insideTimeline = (sample: { timeMs: number }) => sample.timeMs >= 0 && sample.timeMs <= params.durationMs;
+  const keystrokes = params.typing?.keystrokes.filter(insideTimeline) ?? [];
+  if (keystrokes.length === 0) return { elements: clickElements };
+  const caretTrack = params.typing?.caretTrack.filter(insideTimeline) ?? [];
+  const candidates = buildTypingBurstCandidates(keystrokes, telemetry, caretTrack);
+  // Placed after the click zooms, so typing takes only the room clicks and reserved zooms leave.
+  const placed = buildTypingZoomRegions({
+    candidates,
+    occupied: [...reserved, ...clickElements],
+    caretTrack,
+    timelineDurationMs: params.durationMs,
+  });
+  const typingElements: ZoomElement[] = placed.regions.map((region) => ({
+    id: `auto:${params.sessionId}:typing:${Math.round(region.startMs)}`,
+    sessionId: params.sessionId,
+    startMs: Math.round(region.startMs),
+    endMs: Math.round(region.endMs),
+    focus: region.focus,
+    depth: DEFAULT_ZOOM_DEPTH,
+    mode: 'auto',
+    trigger: 'typing',
+    projection: '2d',
+    // No pointer movement says anything about perspective while someone types.
+    tiltIntensity: DEFAULT_ZOOM_TILT_INTENSITY,
+    tiltHorizontal: DEFAULT_ZOOM_TILT_HORIZONTAL,
+    tiltVertical: DEFAULT_ZOOM_TILT_VERTICAL,
+    tiltPreset: DEFAULT_ZOOM_TILT_PRESET,
+  }));
+  return {
+    elements: [...clickElements, ...typingElements].sort((earlier, later) => earlier.startMs - later.startMs),
+    typing: {
+      burstsDetected: candidates.length,
+      burstsApplied: placed.burstsApplied,
+      burstsDeclinedForFocus: candidates.filter((candidate) => candidate.focusRule === 'no-trustworthy-focus').length,
+      burstsLimitedByClick: placed.burstsLimitedByClick,
+    },
+  };
 }
+
+/** The zooms alone, for callers with no use for the typing summary. */
+export const buildAutomaticZoomElements = (params: Parameters<typeof buildAutomaticZoomPlan>[0]): ZoomElement[] =>
+  buildAutomaticZoomPlan(params).elements;

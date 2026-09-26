@@ -218,6 +218,8 @@ export interface ZoomElement {
   focus: ZoomFocus;
   depth: 1 | 2 | 3 | 4 | 5 | 6;
   mode: 'auto' | 'manual';
+  /** Present only on a zoom suggested for typing. */
+  trigger?: 'typing';
   /** Missing only in projects saved before zoom toggles were introduced. */
   enabled?: boolean;
   /** Missing only in projects saved before perspective zooms were introduced. */

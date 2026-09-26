@@ -592,3 +592,35 @@ test('rejects invalid recording link identifiers on zooms', () => {
     );
   }
 });
+
+const typingZoomElement = (trigger) => ({
+  id: 'typing',
+  sessionId: 'session',
+  startMs: 1_000,
+  endMs: 2_000,
+  focus: { cx: 0.5, cy: 0.5 },
+  depth: 2,
+  mode: 'auto',
+  ...(trigger === undefined ? {} : { trigger }),
+});
+
+test('keeps a typing zoom marked as typing through a save and reload', () => {
+  const state = zoomState({ elements: [typingZoomElement('typing')], generatedSessions: [] });
+  assert.equal(state.elements[0].trigger, 'typing');
+  assert.equal(zoomState(state).elements[0].trigger, 'typing');
+});
+
+test('leaves a zoom without a trigger without one, as every zoom saved before typing zooms was', () => {
+  const state = zoomState({ elements: [typingZoomElement(undefined)], generatedSessions: [] });
+  assert.equal(Object.hasOwn(state.elements[0], 'trigger'), false);
+});
+
+test('rejects a zoom trigger other than typing', () => {
+  for (const trigger of ['click', '', 1, null, 'TYPING']) {
+    assert.throws(
+      () => zoomState({ elements: [typingZoomElement(trigger)], generatedSessions: [] }),
+      /Propriétés de zoom invalides/,
+      String(trigger),
+    );
+  }
+});

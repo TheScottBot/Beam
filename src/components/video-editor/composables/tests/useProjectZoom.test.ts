@@ -535,3 +535,39 @@ describe('useProjectZoom', () => {
     expect(state.zoomElements.value).toEqual([zoom('saved')]);
   });
 });
+
+describe('useProjectZoom typing zooms', () => {
+  const typingInteractions = (): ProjectEditorData['interactions'] => ({
+    version: 2,
+    events: [3_000, 3_200, 3_400, 3_600].map((timeMs) => ({
+      event: 'keystroke' as const,
+      sessionNs: timeMs * 1_000_000,
+      producesCharacter: true,
+    })),
+  });
+
+  it('suggests a typing zoom from the session interactions when generating', () => {
+    const { state } = create(data({ interactions: typingInteractions() }), 10_000);
+    state.generateZooms();
+    expect(state.zoomElements.value).toEqual(
+      expect.arrayContaining([expect.objectContaining({ trigger: 'typing', focus: { cx: 0.2, cy: 0.8 } })]),
+    );
+  });
+
+  it('keeps what typing did, for the editor to explain', () => {
+    const { state } = create(data({ interactions: typingInteractions() }), 10_000);
+    state.generateZooms();
+    expect(state.typingSuggestionSummary.value).toEqual({
+      burstsDetected: 1,
+      burstsApplied: 1,
+      burstsDeclinedForFocus: 0,
+      burstsLimitedByClick: 0,
+    });
+  });
+
+  it('has nothing to say about typing for a session without it', () => {
+    const { state } = create(data(), 10_000);
+    state.generateZooms();
+    expect(state.typingSuggestionSummary.value).toBeNull();
+  });
+});

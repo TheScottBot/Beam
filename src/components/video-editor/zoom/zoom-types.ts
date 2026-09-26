@@ -5,6 +5,7 @@ export interface ZoomFocus {
 
 export type ZoomDepth = 1 | 2 | 3 | 4 | 5 | 6;
 export type ZoomMode = 'auto' | 'manual';
+export type ZoomTrigger = 'typing';
 export type ZoomProjection = '2d' | '3d';
 export type ZoomTiltPreset = 'small' | 'medium' | 'large' | 'custom';
 
@@ -28,6 +29,11 @@ export interface ZoomElement {
   focus: ZoomFocus;
   depth: ZoomDepth;
   mode: ZoomMode;
+  /**
+   * Present only on a zoom suggested for typing. Absent on click zooms, manual zooms and every
+   * zoom saved before typing zooms existed.
+   */
+  trigger?: ZoomTrigger;
   enabled?: boolean;
   /** Missing only in projects saved before perspective zooms were introduced. */
   projection?: ZoomProjection;

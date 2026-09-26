@@ -4,7 +4,8 @@ import { createComposition } from '../composition/engine/clip-engine';
 import type { ClipComposition, MediaAsset, VisualClip } from '~/media/shared/composition-types';
 import type { CursorTelemetryPoint } from '~/api/types/capture-session';
 import type { ZoomElement } from './zoom-types';
-import { generateRecordingZooms } from './recording-zoom-generation';
+import { generateRecordingZoomPlan, generateRecordingZooms } from './recording-zoom-generation';
+import { caretAt, typingRun, typingTelemetry } from './tests/typing-fixtures';
 
 const asset = (id: string, sessionId: string): MediaAsset => ({
   id,
@@ -128,4 +129,76 @@ it('keeps generated IDs unique across recording copies and retained detached zoo
   expect(generated).toHaveLength(2);
   expect(new Set([reserved, ...generated].map((zoom) => zoom.id)).size).toBe(3);
   expect(generated.map((zoom) => zoom.linkedClipId)).toEqual(['one', 'two']);
+});
+
+describe('generateRecordingZoomPlan with typing', () => {
+  const trimmedComposition = () =>
+    composition(
+      [
+        screen('trimmed-screen', 'screen-asset', {
+          timelineStartMs: 4_000,
+          timelineDurationMs: 2_000,
+          sourceInMs: 3_000,
+          sourceDurationMs: 4_000,
+          playbackRate: 2,
+        }),
+      ],
+      [asset('screen-asset', 'session')],
+    );
+
+  it('maps keystrokes and the caret into the clip timeline exactly as it maps the cursor', () => {
+    const { elements } = generateRecordingZoomPlan(
+      trimmedComposition(),
+      'session',
+      [],
+      [],
+      typingTelemetry({ keystrokes: typingRun(3_000, 5_000), caretTrack: [caretAt(3_400, 0.7, 0.2)] }),
+    );
+    expect(elements).toEqual([
+      expect.objectContaining({
+        linkedClipId: 'trimmed-screen',
+        trigger: 'typing',
+        startMs: 4_000,
+        endMs: 5_500,
+        focus: { cx: 0.7, cy: 0.2 },
+      }),
+    ]);
+  });
+
+  it('ignores typing outside the part of the recording the clip uses', () => {
+    const { elements, typing } = generateRecordingZoomPlan(
+      trimmedComposition(),
+      'session',
+      [],
+      [],
+      typingTelemetry({ keystrokes: typingRun(8_000, 9_000), caretTrack: [caretAt(8_100, 0.7, 0.2)] }),
+    );
+    expect(elements).toEqual([]);
+    expect(typing).toBeUndefined();
+  });
+
+  it('adds up what typing did across every clip of the recording', () => {
+    const twoClips = composition(
+      [screen('one', 'asset'), screen('two', 'asset', { timelineStartMs: 6_000 })],
+      [asset('asset', 'session')],
+    );
+    const { typing } = generateRecordingZoomPlan(
+      twoClips,
+      'session',
+      [],
+      [],
+      typingTelemetry({ keystrokes: typingRun(1_000, 2_000) }),
+    );
+    expect(typing).toEqual({ burstsDetected: 2, burstsApplied: 0, burstsDeclinedForFocus: 2, burstsLimitedByClick: 0 });
+  });
+
+  it('returns the same elements generateRecordingZooms does', () => {
+    const typingInput = typingTelemetry({
+      keystrokes: typingRun(3_000, 5_000),
+      caretTrack: [caretAt(3_400, 0.7, 0.2)],
+    });
+    expect(generateRecordingZooms(trimmedComposition(), 'session', [click(4_000)], [], typingInput)).toEqual(
+      generateRecordingZoomPlan(trimmedComposition(), 'session', [click(4_000)], [], typingInput).elements,
+    );
+  });
 });
