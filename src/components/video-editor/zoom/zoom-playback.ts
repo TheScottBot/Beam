@@ -33,8 +33,7 @@ export function clampFocusToScale(focus: ZoomFocus, scale: number): ZoomFocus {
   return { cx: Math.min(1 - margin, Math.max(margin, focus.cx)), cy: Math.min(1 - margin, Math.max(margin, focus.cy)) };
 }
 
-export function regionStrength(region: ZoomElement, timeMs: number): number {
-  const adjusted = timeMs - LEAD_MS;
+const regionEnvelope = (region: ZoomElement) => {
   const inStart = region.startMs + IN_OVERLAP_MS - ZOOM_IN_MS;
   let inEnd = inStart + ZOOM_IN_MS;
   let outStart = region.endMs - OUT_EARLY_MS;
@@ -43,10 +42,36 @@ export function regionStrength(region: ZoomElement, timeMs: number): number {
     inEnd = midpoint;
     outStart = midpoint;
   }
+  return { inStart, inEnd, outStart };
+};
+
+export function regionStrength(region: ZoomElement, timeMs: number): number {
+  const adjusted = timeMs - LEAD_MS;
+  const { inStart, inEnd, outStart } = regionEnvelope(region);
   if (adjusted < inStart || adjusted > outStart + ZOOM_OUT_MS) return 0;
   if (adjusted < inEnd) return easeOut((adjusted - inStart) / Math.max(1, inEnd - inStart));
   if (adjusted <= outStart) return 1;
   return 1 - easeOut((adjusted - outStart) / ZOOM_OUT_MS);
+}
+
+const connectedSuccessor = (element: ZoomElement, elements: readonly ZoomElement[]) =>
+  elements.find(
+    (candidate) => candidate.startMs >= element.endMs && candidate.startMs - element.endMs <= CONNECTED_GAP_MS,
+  );
+
+/**
+ * A region's strength, held at its peak until its connected pan ends when a typing zoom is on
+ * either side of the connection (TD29). A region otherwise starts zooming out `OUT_EARLY_MS` before
+ * its end while the pan starts `LEAD_MS` after it, so the camera dips out and the pan carries it
+ * back in; typing makes such handovers frequent, and the author saw the repeated dips as a seizure.
+ * Click to click connections keep their existing timing.
+ */
+function heldRegionStrength(element: ZoomElement, elements: readonly ZoomElement[], timeMs: number): number {
+  const next = connectedSuccessor(element, elements);
+  if (!next || (element.trigger !== 'typing' && next.trigger !== 'typing')) return regionStrength(element, timeMs);
+  const peakMs = regionEnvelope(element).inEnd + LEAD_MS;
+  if (timeMs < peakMs || timeMs > element.endMs + LEAD_MS + CONNECTED_PAN_MS) return regionStrength(element, timeMs);
+  return regionStrength(element, peakMs);
 }
 
 export function cursorFocusAt(samples: readonly CursorTelemetryPoint[], timeMs: number): ZoomFocus | null {
@@ -83,12 +108,10 @@ function zoomAtSortedTime(
     );
   });
   if (pair) {
-    const next = elements.find(
-      (candidate) => candidate.startMs >= pair.endMs && candidate.startMs - pair.endMs <= CONNECTED_GAP_MS,
-    );
+    const next = connectedSuccessor(pair, elements);
     if (next) {
       const t = easeOut((timeMs - pair.endMs - LEAD_MS) / CONNECTED_PAN_MS);
-      const transitionStrength = lerp(regionStrength(pair, timeMs), 1, t);
+      const transitionStrength = lerp(heldRegionStrength(pair, elements, timeMs), 1, t);
       const startScale = ZOOM_DEPTH_SCALES[pair.depth];
       const endScale = ZOOM_DEPTH_SCALES[next.depth];
       const startFocus = clampFocusToScale(
@@ -122,7 +145,7 @@ function zoomAtSortedTime(
   }
   let current: { element: ZoomElement; strength: number } | null = null;
   for (const element of elements) {
-    const strength = regionStrength(element, timeMs);
+    const strength = heldRegionStrength(element, elements, timeMs);
     if (strength <= 0) continue;
     if (
       !current ||
@@ -133,10 +156,7 @@ function zoomAtSortedTime(
   }
   if (!current) return null;
   const currentScale = ZOOM_DEPTH_SCALES[current.element.depth];
-  const next = elements.find(
-    (candidate) =>
-      candidate.startMs >= current.element.endMs && candidate.startMs - current.element.endMs <= CONNECTED_GAP_MS,
-  );
+  const next = connectedSuccessor(current.element, elements);
   let focus = clampFocusToScale(
     mapFocus(
       current.element.focus,
