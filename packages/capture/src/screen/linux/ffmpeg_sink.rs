@@ -160,7 +160,16 @@ impl FfmpegScreenSink {
                     button,
                     pressed,
                 }),
-                MappedInputEvent::Persistent(InputEvent::Shortcut { .. }) => {}
+                // Only pointer events feed the cursor track. Named one by one, without a wildcard,
+                // so a new event kind has to be decided here rather than dropped unseen.
+                MappedInputEvent::Persistent(
+                    InputEvent::Shortcut { .. }
+                    | InputEvent::Keystroke { .. }
+                    | InputEvent::KeystrokeLimitReached { .. }
+                    | InputEvent::Caret { .. }
+                    | InputEvent::CaretLimitReached { .. }
+                    | InputEvent::CaretAutomationUnavailable { .. },
+                ) => {}
             }
         }
         Ok(())
