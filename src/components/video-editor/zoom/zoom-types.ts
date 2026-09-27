@@ -60,6 +60,10 @@ export interface AppliedZoom {
   tracksCaret?: boolean;
   /** Where the followed region began on the timeline; carets from before it are other typing. */
   regionStartMs?: number;
+  /** Where the followed region ends on the timeline; carets after it are later typing. */
+  regionEndMs?: number;
+  /** The region's full depth scale, so the caret's dead zone does not change during zoom in. */
+  regionScale?: number;
   tilt: number;
   tiltHorizontal?: number;
   tiltVertical?: number;

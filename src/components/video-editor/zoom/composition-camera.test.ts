@@ -224,14 +224,21 @@ describe('composition camera following the caret', () => {
     expect(sample.focus.cx).toBe(0.5);
   });
 
-  it('holds a typing zoom still while the caret stays inside the safe zone', () => {
+  // Replaced under TD23: a typing zoom now opens on its first caret (Recordly's camera, TD22)
+  // instead of holding its saved focus while the caret is near it.
+  it('opens a typing zoom on its first caret and holds while the caret stays near it', () => {
     const evaluator = createCompositionCameraEvaluator({
       zooms: [typingZoom],
       telemetry: pointerFarRight,
-      caretTrack: [{ timeMs: 2_000, cx: 0.55, cy: 0.45 }],
+      caretTrack: [
+        { timeMs: 2_000, cx: 0.55, cy: 0.45 },
+        { timeMs: 2_500, cx: 0.57, cy: 0.45 },
+      ],
       autoFollow,
     });
-    expect(evaluator.sample(4_000).focus).toEqual({ cx: 0.5, cy: 0.5 });
+    const sample = evaluator.sample(4_000);
+    expect(sample.focus.cx).toBeCloseTo(0.55, 6);
+    expect(sample.focus.cy).toBeCloseTo(0.45, 6);
   });
 
   it('holds a typing zoom on its own focus when there is no caret track at all', () => {
@@ -272,5 +279,70 @@ describe('composition camera following the caret', () => {
     const sample = evaluator.sample(4_000);
     expect(sample.focus.cx).toBeCloseTo(0.6, 6);
     expect(sample.focus.cy).toBeCloseTo(0.4, 6);
+  });
+});
+
+describe('composition camera with the ported caret camera (TD22)', () => {
+  const typingZoom: ZoomElement = { ...autoZoom, id: 'typing', trigger: 'typing' };
+
+  it('centres a typing zoom on the text, where the safe zone camera left it off centre', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: [],
+      caretTrack: [{ timeMs: 2_000, cx: 0.5, cy: 0.62 }],
+      autoFollow,
+    });
+    expect(evaluator.sample(4_000).focus.cy).toBeCloseTo(0.62, 6);
+  });
+
+  it('follows the text down the page by the least move, trailing it by the dead zone', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: [],
+      caretTrack: [
+        { timeMs: 1_000, cx: 0.5, cy: 0.4 },
+        { timeMs: 3_000, cx: 0.5, cy: 0.62 },
+      ],
+      autoFollow,
+    });
+    // Depth 2 is 1.5x, so the dead zone is half of a third of the frame.
+    expect(evaluator.sample(4_800).focus.cy).toBeCloseTo(0.62 - 0.5 / 3, 2);
+  });
+
+  it('leaves a click zoom on the safe zone camera, following the pointer', () => {
+    const evaluator = createCompositionCameraEvaluator({
+      zooms: [autoZoom],
+      telemetry: [
+        { timeMs: 0, cx: 0.58, cy: 0.42 },
+        { timeMs: 5_000, cx: 0.58, cy: 0.42 },
+      ],
+      caretTrack: [{ timeMs: 2_000, cx: 0.5, cy: 0.62 }],
+      autoFollow,
+    });
+    expect(evaluator.sample(2_500).focus).toEqual({ cx: 0.5, cy: 0.5 });
+  });
+});
+
+describe('the caret camera on a sped up clip', () => {
+  const typingZoom: ZoomElement = { ...autoZoom, id: 'typing', trigger: 'typing', endMs: 10_000 };
+  const track = [
+    { timeMs: 1_000, cx: 0.5, cy: 0.4 },
+    { timeMs: 2_000, cx: 0.5, cy: 0.66 },
+  ];
+  const cyAt = (timelineMs: number, rate: number) =>
+    createCompositionCameraEvaluator({
+      zooms: [typingZoom],
+      telemetry: [],
+      caretTrack: track,
+      autoFollow,
+      mapTelemetryTime: (timeMs) => timeMs * rate,
+    }).sample(timelineMs).focus.cy;
+
+  // Recordly's speeds are per second of recording, so on a clip played at twice the rate the
+  // caret camera's target moves twice as fast on the timeline. Beam's zoom spring, which carries the
+  // view into that target, runs on the timeline, so the two clips do not match exactly. Recorded as
+  // the behaviour, not a choice: a clip played faster shows the typing faster too.
+  it('follows on the recording clock, so a clip at twice the rate has moved further by the same moment', () => {
+    expect(cyAt(1_600, 2)).toBeGreaterThan(cyAt(1_600, 1) + 0.01);
   });
 });

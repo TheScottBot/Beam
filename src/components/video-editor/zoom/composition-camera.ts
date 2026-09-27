@@ -1,7 +1,7 @@
 import type { CursorTelemetryPoint } from '../../../api/types/capture-session';
 import { createCameraVelocity, stepCameraSpring, type CameraTransform, type CameraVelocity } from './zoom-spring';
 import { clampFocusToScale, createZoomTimeEvaluator, cursorFocusAt } from './zoom-playback';
-import { caretFocusAt } from './caret-follow';
+import { resolveCaretFollowFocus } from './caret-follow-camera';
 import type { CaretSample } from './typing-zoom-types';
 import {
   cameraSpringOmega,
@@ -90,19 +90,34 @@ export function createCompositionCameraEvaluator(inputs: CompositionCameraInputs
     }
     let focus = clampFocusToScale(zoom.focus, zoom.scale);
     const follows = zoom.tracksCursor === true || zoom.tracksCaret === true;
-    if (follows) {
-      const telemetryTimeMs = inputs.mapTelemetryTime?.(timeMs) ?? timeMs;
-      // The caret and the pointer share the telemetry clock, the source coordinates and the
-      // safe zone spring; only which of them the camera watches differs.
-      const rawFollowed = zoom.tracksCaret
-        ? caretFocusAt(
-            sortedCaretTrack,
-            telemetryTimeMs,
-            inputs.mapTelemetryTime?.(zoom.regionStartMs ?? 0) ?? zoom.regionStartMs ?? 0,
-          )
-        : cursorFocusAt(sortedTelemetry, telemetryTimeMs);
-      const followed = rawFollowed ? (inputs.mapFocus?.(rawFollowed, zoom, timeMs) ?? rawFollowed) : null;
-      focus = updateAutoFollowTarget(autoFollow, followed, focus, zoom.scale, zoom.strength, timeMs);
+    const telemetryTimeAt = (timelineTimeMs: number) => inputs.mapTelemetryTime?.(timelineTimeMs) ?? timelineTimeMs;
+    if (zoom.tracksCaret) {
+      // A typing zoom takes Recordly's caret camera (TD22) rather than the pointer's safe zone
+      // camera, which left the text off centre. The caret shares the pointer's telemetry clock and
+      // source coordinates, so it is mapped onto the screen the same way.
+      const regionStartMs = telemetryTimeAt(zoom.regionStartMs ?? 0);
+      const regionEndMs = telemetryTimeAt(zoom.regionEndMs ?? timeMs);
+      // Without a caret in the region the zoom keeps its own focus, which is already on screen.
+      const hasCaret = sortedCaretTrack.some(
+        (sample) => sample.timeMs >= regionStartMs && sample.timeMs <= regionEndMs,
+      );
+      if (hasCaret) {
+        const caretFocus = resolveCaretFollowFocus({
+          caretTrack: sortedCaretTrack,
+          regionStartMs,
+          regionEndMs,
+          timeMs: telemetryTimeAt(timeMs),
+          // Never used: with a caret in the region the camera opens on that caret.
+          anchorFocus: zoom.focus,
+          zoomScale: zoom.regionScale ?? zoom.scale,
+        });
+        focus = clampFocusToScale(inputs.mapFocus?.(caretFocus, zoom, timeMs) ?? caretFocus, zoom.scale);
+      }
+      updateAutoFollowTarget(autoFollow, null, focus, zoom.scale, 0, timeMs);
+    } else if (zoom.tracksCursor) {
+      const rawCursor = cursorFocusAt(sortedTelemetry, telemetryTimeAt(timeMs));
+      const cursor = rawCursor ? (inputs.mapFocus?.(rawCursor, zoom, timeMs) ?? rawCursor) : null;
+      focus = updateAutoFollowTarget(autoFollow, cursor, focus, zoom.scale, zoom.strength, timeMs);
     } else updateAutoFollowTarget(autoFollow, null, focus, zoom.scale, 0, timeMs);
     const tilt = cameraTiltForControls(
       zoom.tilt,

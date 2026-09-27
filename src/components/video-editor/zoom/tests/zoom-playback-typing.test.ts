@@ -33,3 +33,13 @@ describe('what a zoom follows', () => {
     });
   });
 });
+
+describe('what a typing zoom tells the caret camera', () => {
+  it('reports where it ends and its full depth, whatever the transition strength', () => {
+    expect(zoomAtTime([zoom({ trigger: 'typing', depth: 3 })], 1_500)).toMatchObject({
+      regionStartMs: 1_000,
+      regionEndMs: 6_000,
+      regionScale: 1.8,
+    });
+  });
+});

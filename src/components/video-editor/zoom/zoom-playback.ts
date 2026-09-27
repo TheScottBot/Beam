@@ -192,6 +192,8 @@ function zoomAtSortedTime(
     tracksCursor: current.element.mode === 'auto' && current.element.trigger !== 'typing',
     tracksCaret: current.element.mode === 'auto' && current.element.trigger === 'typing',
     regionStartMs: current.element.startMs,
+    regionEndMs: current.element.endMs,
+    regionScale: currentScale,
     tilt: tiltFor(current.element) * current.strength,
     tiltHorizontal: horizontalTiltFor(current.element),
     tiltVertical: verticalTiltFor(current.element),
